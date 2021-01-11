@@ -32,9 +32,33 @@ type DataChunk = {
     SampleData: byte []
 }
 
+type SampleLoop = {
+    CuePointId: uint32
+    Type: uint32
+    Start: uint32
+    End: uint32
+    Fraction: uint32
+    PlayCount: uint32
+}
+
+type SamplerChunk = {
+    Manufacturer: string    // 4
+    Product: string         // 4
+    SamplePeriod: uint32
+    MidiUnityNote: uint32
+    MidiPitchFraction: uint32
+    SmpteFormat: uint32
+    SmpteOffset: uint32
+    NumSampleLoops: uint32
+    SamplerDataSize: uint32
+    SampleLoops: SampleLoop []
+    SamplerData: byte []
+}
+
 type ChunkData =
     | FmtChunk of FmtChunk
     | DataChunk of DataChunk
+    | SamplerChunk of SamplerChunk
     | GenericChunk of byte []
 
 type Chunk = {
@@ -84,10 +108,51 @@ let readDataChunk (rd: BinaryReader) =
         SampleData = rd.ReadBytes(chunkSize |> int)
     }
 
+let rec readSampleLoops (rd: BinaryReader) (n: uint32) =
+    match n with
+    | 0u -> []
+    | _ ->
+        (
+            {
+                CuePointId = rd.ReadUInt32()
+                Type = rd.ReadUInt32()
+                Start = rd.ReadUInt32()
+                End = rd.ReadUInt32()
+                Fraction = rd.ReadUInt32()
+                PlayCount = rd.ReadUInt32()
+            } :: (readSampleLoops rd (n - 1u))
+        )
+
+let readSamplerChunk (rd: BinaryReader) =
+    let manufacturer = rd.ReadBytes(4) |> asciiString
+    let product = rd.ReadBytes(4) |> asciiString
+    let samplePeriod = rd.ReadUInt32()
+    let midiUnityNote = rd.ReadUInt32()
+    let midiPitchFraction = rd.ReadUInt32()
+    let smpteFormat = rd.ReadUInt32()
+    let smpteOffset = rd.ReadUInt32()
+    let numSampleLoops = rd.ReadUInt32()
+    let samplerDataSize = rd.ReadUInt32()
+    let sampleLoops = readSampleLoops rd numSampleLoops |> List.toArray
+    {
+        Manufacturer = manufacturer
+        Product = product
+        SamplePeriod = samplePeriod
+        MidiUnityNote = midiUnityNote
+        MidiPitchFraction = midiPitchFraction
+        SmpteFormat = smpteFormat
+        SmpteOffset = smpteOffset
+        NumSampleLoops = numSampleLoops
+        SamplerDataSize = samplerDataSize
+        SampleLoops = sampleLoops
+        SamplerData = rd.ReadBytes(samplerDataSize |> int)
+    }
+
 let readChunkData (rd: BinaryReader) (hdr: ChunkHeader) =
     match hdr.ChunkId with
     | "fmt " -> FmtChunk (readFmtChunk rd)
     | "data" -> DataChunk (readDataChunk rd)
+    | "smpl" -> SamplerChunk (readSamplerChunk rd)
     | _ -> GenericChunk (rd.ReadBytes(hdr.ChunkDataSize |> int))
 
 let rec readChunks (rd: BinaryReader) =
