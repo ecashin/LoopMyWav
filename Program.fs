@@ -15,9 +15,31 @@ type ChunkHeader = {
     ChunkDataSize: uint32
 }
 
+type FmtChunk = {
+    CompressionCode: uint16
+    NumberOfChannels: uint16
+    SampleRate: uint32
+    AvgBytesPerSec: uint32
+    BlockAlign: uint16
+    SigBitsPerSample: uint16
+    // Compression is not supported
+    // NExtraFormatBytes: uint16
+    // Extra: byte []
+}
+
+type DataChunk = {
+    ChunkSize: uint32
+    SampleData: byte []
+}
+
+type ChunkData =
+    | FmtChunk of FmtChunk
+    | DataChunk of DataChunk
+    | GenericChunk of byte []
+
 type Chunk = {
     ChunkHeader: ChunkHeader
-    Data: byte []
+    Data: ChunkData
 }
 
 let readChunkHeader (rd: BinaryReader) =
@@ -43,6 +65,31 @@ let readWavHeader (rd: BinaryReader) =
         RiffType = rd.ReadBytes(4) |> asciiString
     }
 
+let readFmtChunk (rd: BinaryReader) =
+    let compCode = rd.ReadUInt16()
+    assert (compCode = 1us)
+    {
+        CompressionCode = compCode
+        NumberOfChannels = rd.ReadUInt16()
+        SampleRate = rd.ReadUInt32()
+        AvgBytesPerSec = rd.ReadUInt32()
+        BlockAlign = rd.ReadUInt16()
+        SigBitsPerSample = rd.ReadUInt16()
+    }
+
+let readDataChunk (rd: BinaryReader) =
+    let chunkSize = rd.ReadUInt32()
+    {
+        ChunkSize = chunkSize
+        SampleData = rd.ReadBytes(chunkSize |> int)
+    }
+
+let readChunkData (rd: BinaryReader) (hdr: ChunkHeader) =
+    match hdr.ChunkId with
+    | "fmt " -> FmtChunk (readFmtChunk rd)
+    | "data" -> DataChunk (readDataChunk rd)
+    | _ -> GenericChunk (rd.ReadBytes(hdr.ChunkDataSize |> int))
+
 let rec readChunks (rd: BinaryReader) =
     if rd.BaseStream.Position = rd.BaseStream.Length then
         []
@@ -50,7 +97,7 @@ let rec readChunks (rd: BinaryReader) =
         let hdr = readChunkHeader rd
         {
             ChunkHeader = hdr
-            Data = rd.ReadBytes(hdr.ChunkDataSize |> int)
+            Data = readChunkData rd hdr
         } :: (readChunks rd)
 
 let parseWavFile (wavFileName: string) =
