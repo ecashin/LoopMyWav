@@ -2,6 +2,7 @@
 // https://sites.google.com/site/musicgapi/technical-documents/wav-file-format#wavefileheader
 // for the format description.
 open Newtonsoft.Json
+open NumSharp
 open System.IO
 
 let asciiString (bytes: byte []) =
@@ -178,16 +179,17 @@ let isSamplesChunk (chunk: Chunk) =
     | DataChunk(_) -> true
     | _ -> false
 
-let extractChunkSamples (chunk: Chunk) : int16 [] =
+let extractChunkSamples (chunk: Chunk) : int [] =
     let sampleBytes =
         match chunk.Data with
         | DataChunk(c) -> c.SampleData
         | _ -> [||]
     sampleBytes
         |> Array.chunkBySize 2
-        |> Array.map (fun a -> ((uint a.[1]) <<< 8 ||| (uint a.[0])) |> uint16 |> int16)
+        |> Array.map (fun a ->
+            ((uint a.[1]) <<< 8 ||| (uint a.[0])) |> int)
 
-let extractWavSamples (wav: Wav) : int16 [] [] =
+let extractWavSamples (wav: Wav) : int [] [] =
     wav.Chunks
         |> Array.filter isSamplesChunk
         |> Array.map extractChunkSamples
@@ -232,7 +234,7 @@ let hexDisplayShorts (data: uint16 []) : unit =
         |> String.concat "\n"
         |> printfn "%s"
 
-let decDisplayShorts (data: int16 []): unit =
+let decDisplayShorts (data: int []): unit =
     let header = "sample"
     printfn "%s" header
     data
@@ -257,9 +259,8 @@ let main argv =
             |> extractWavSamples
             |> Array.iter decDisplayShorts
         0
-    (*
     | [|wavFileName|] ->
-        let wav = parseWavFile wavFileName
-        printfn "%A" (findloop wav)
-        0 *)
+        let samples = np.array(parseWavFile wavFileName |> extractWavSamples)
+        printfn "%A" samples
+        0
     | _ -> 1
