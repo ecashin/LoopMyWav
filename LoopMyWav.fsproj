@@ -9,10 +9,6 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Accord.Audio" Version="3.8.0" />
-    <PackageReference Include="Accord.DirectSound" Version="3.8.0" />
-    <PackageReference Include="Accord.Statistics" Version="3.8.0" />
-    <!-- <PackageReference Include="Accord.Math" Version="3.8.0" /> -->
     <PackageReference Include="NewtonSoft.Json" Version="12.0.3" />
   </ItemGroup>
 </Project>
