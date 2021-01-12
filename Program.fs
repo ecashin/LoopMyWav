@@ -173,6 +173,34 @@ let parseWavFile (wavFileName: string) =
         Chunks = readChunks rd |> List.toArray
     }
 
+let isSamplesChunk (chunk: Chunk) =
+    match chunk.Data with
+    | DataChunk(_) -> true
+    | _ -> false
+
+let extractChunkSamples (chunk: Chunk) : uint16 [] =
+    let sampleBytes =
+        match chunk.Data with
+        | DataChunk(c) -> c.SampleData
+        | _ -> [||]
+    sampleBytes
+        |> Array.chunkBySize 2
+        |> Array.map (fun a -> ((uint a.[1]) <<< 8 ||| (uint a.[0])) |> uint16)
+
+let extractWavSamples (wav: Wav) : uint16 [] [] =
+    wav.Chunks
+        |> Array.filter isSamplesChunk
+        |> Array.map extractChunkSamples
+
+let hexDisplayUShorts (data: uint16 []): unit =
+    data
+        |> Array.map (sprintf "%04x")
+        |> Array.chunkBySize 16
+        |> Array.map (Array.toSeq >> String.concat " ")
+        |> Array.toSeq
+        |> String.concat "\n"
+        |> printfn "%s"
+
 [<EntryPoint>]
 let main argv =
     match argv with
@@ -182,7 +210,15 @@ let main argv =
         writePgm pgm outPgmFileName
         0
     *)
-    | [|wavFileName|] ->
-        parseWavFile wavFileName |> JsonConvert.SerializeObject |> printf "%s"
+    | [|wavFileName; "-j"|] ->
+        let wav = parseWavFile wavFileName
+        wav |> JsonConvert.SerializeObject |> printf "%s"
+        0
+    | [|wavFileName; "-s"|] ->
+        let wav = parseWavFile wavFileName
+        wav
+            |> extractWavSamples
+            |> Array.map hexDisplayUShorts
+            |> ignore
         0
     | _ -> 1
