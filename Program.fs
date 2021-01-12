@@ -15,7 +15,7 @@ type ChunkHeader = {
     ChunkDataSize: uint32
 }
 
-type FmtChunk = {
+type FormatChunk = {
     CompressionCode: uint16
     NumberOfChannels: uint16
     SampleRate: uint32
@@ -56,7 +56,7 @@ type SamplerChunk = {
 }
 
 type ChunkData =
-    | FmtChunk of FmtChunk
+    | FormatChunk of FormatChunk
     | DataChunk of DataChunk
     | SamplerChunk of SamplerChunk
     | GenericChunk of byte []
@@ -89,7 +89,7 @@ let readWavHeader (rd: BinaryReader) =
         RiffType = rd.ReadBytes(4) |> asciiString
     }
 
-let readFmtChunk (rd: BinaryReader) =
+let readFormatChunk (rd: BinaryReader) =
     let compCode = rd.ReadUInt16()
     assert (compCode = 1us)
     {
@@ -150,7 +150,7 @@ let readSamplerChunk (rd: BinaryReader) =
 
 let readChunkData (rd: BinaryReader) (hdr: ChunkHeader) =
     match hdr.ChunkId with
-    | "fmt " -> FmtChunk (readFmtChunk rd)
+    | "fmt " -> FormatChunk (readFormatChunk rd)
     | "data" -> DataChunk (readDataChunk rd)
     | "smpl" -> SamplerChunk (readSamplerChunk rd)
     | _ -> GenericChunk (rd.ReadBytes(hdr.ChunkDataSize |> int))
@@ -178,21 +178,52 @@ let isSamplesChunk (chunk: Chunk) =
     | DataChunk(_) -> true
     | _ -> false
 
-let extractChunkSamples (chunk: Chunk) : uint16 [] =
+let extractChunkSamples (chunk: Chunk) : int16 [] =
     let sampleBytes =
         match chunk.Data with
         | DataChunk(c) -> c.SampleData
         | _ -> [||]
     sampleBytes
         |> Array.chunkBySize 2
-        |> Array.map (fun a -> ((uint a.[1]) <<< 8 ||| (uint a.[0])) |> uint16)
+        |> Array.map (fun a -> ((uint a.[1]) <<< 8 ||| (uint a.[0])) |> uint16 |> int16)
 
-let extractWavSamples (wav: Wav) : uint16 [] [] =
+let extractWavSamples (wav: Wav) : int16 [] [] =
     wav.Chunks
         |> Array.filter isSamplesChunk
         |> Array.map extractChunkSamples
 
-let hexDisplayUShorts (data: uint16 []): unit =
+let sampleRate (wav: Wav) =
+    let sr (chunk: Chunk) =
+        match chunk.Data with
+        | FormatChunk(c) -> Some(c.SampleRate)
+        | _ -> None
+    let sampleRates =
+        wav.Chunks
+        |> Array.map sr
+        |> Array.choose id
+        |> Array.distinct
+    assert (sampleRates.Length = 1)
+    sampleRates.[0]
+
+(*
+let findLoop (wav: Wav) : (int * int) =
+    let findStartStop (samples: uint16 []) =
+        let windowSize = (sampleRate wav) / 1000ul |> int
+        assert (samples.Length > (windowSize * 2))
+        let winSamples i = samples.[i..(i + windowSize - 1)]
+        let windows = Array.init (samples.Length - windowSize) winSamples
+        let amps =
+            windows
+            |> Array.map (fun win -> (Array.max win) - (Array.min win))
+        let maxAmp = Array.max amps
+        let mutable start = samples.Length / 10
+        let zero = 0xffff / 2
+        while Math.abs(samples.[start] - zero) > 0xf
+    extractWavSamples wav
+        |> Array.map findStartStop
+        *)
+
+let hexDisplayShorts (data: uint16 []) : unit =
     data
         |> Array.map (sprintf "%04x")
         |> Array.chunkBySize 16
@@ -200,6 +231,12 @@ let hexDisplayUShorts (data: uint16 []): unit =
         |> Array.toSeq
         |> String.concat "\n"
         |> printfn "%s"
+
+let decDisplayShorts (data: int16 []): unit =
+    let header = "sample"
+    printfn "%s" header
+    data
+        |> Array.iter (int >> (printfn "%d"))
 
 [<EntryPoint>]
 let main argv =
@@ -218,7 +255,11 @@ let main argv =
         let wav = parseWavFile wavFileName
         wav
             |> extractWavSamples
-            |> Array.map hexDisplayUShorts
-            |> ignore
+            |> Array.iter decDisplayShorts
         0
+    (*
+    | [|wavFileName|] ->
+        let wav = parseWavFile wavFileName
+        printfn "%A" (findloop wav)
+        0 *)
     | _ -> 1
