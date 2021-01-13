@@ -18,6 +18,14 @@ This software currently reads in the WAV file and parses
 its information, performing different actions depening on usage
 as shown below.
 
+## Best Effort
+
+This is "best effort" software
+that doesn't mind using `assert`
+instead of more elaborate error handling.
+I want to enter a contest soon with a bunch of looped samples,
+so I'm going fast.
+
 ## Usage
 
 Print CSV for the samples in the WAV file:
