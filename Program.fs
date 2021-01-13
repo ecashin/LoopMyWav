@@ -260,7 +260,51 @@ let main argv =
             |> Array.iter decDisplayShorts
         0
     | [|wavFileName|] ->
-        let samples = np.array(parseWavFile wavFileName |> extractWavSamples)
-        printfn "%A" samples
+        let wav = parseWavFile wavFileName
+        let allSamples = wav |> extractWavSamples
+        assert (allSamples.Length = 1)
+        let samples = allSamples.[0]
+        let winSize = (sampleRate wav) / 1000ul |> int
+        let windows =
+            samples.[0..(samples.Length - 1 - winSize)]
+            |> Array.mapi (fun i _ -> samples.[i..(i + winSize)])
+        let amps =
+            windows
+            |> Array.map ((fun win -> win |> Array.map System.Math.Abs) >> Array.sum)
+        let findGoodAmp amps =
+            let sortedAmps = amps |> Array.sort
+            let iMedian = amps.Length / 2
+            sortedAmps.[iMedian]
+        let goodAmp = findGoodAmp amps
+        let rec findStart iCurr iLimit =
+            if amps.[iCurr] <= goodAmp || iCurr + 1 = iLimit then
+                iCurr
+            else
+                findStart iCurr iLimit
+
+        // an eighth is a guess as to the usual location for sustain level
+        let start = findStart (amps.Length / 8) (3 * amps.Length / 5)
+        let distance (x1: int []) (x2: int []) =
+            Array.map2 (fun a b -> (abs (a - b))) x1 x2
+            |> Array.sum
+        let findStop last first =
+            let indexedL1Distances =
+                windows
+                |> Array.indexed
+                |> Array.filter (fun (i, _) -> i >= first && i <= last)
+                |> Array.map (fun (i, win) -> (i, distance win windows.[start]))
+            let folder (iCurr, curr) (iNext, next) =
+                if next < curr then
+                    (iNext, next)
+                else
+                    (iCurr, curr)
+            let iMin =
+                indexedL1Distances.[1..]
+                |> Array.fold folder indexedL1Distances.[0]
+                |> fst
+            iMin
+        let stop = findStop (amps.Length - (amps.Length / 8)) (amps.Length / 2)
+        printfn "start: %d" start
+        printfn "stop: %d" stop
         0
     | _ -> 1
