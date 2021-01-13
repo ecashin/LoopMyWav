@@ -93,13 +93,20 @@ let readWavHeader (rd: BinaryReader) =
 let readFormatChunk (rd: BinaryReader) =
     let compCode = rd.ReadUInt16()
     assert (compCode = 1us)
+    let noChans = rd.ReadUInt16()
+    let sr = rd.ReadUInt32()
+    let bps = rd.ReadUInt32()
+    let blockAlign = rd.ReadUInt16()
+    assert (blockAlign = 2us)
+    let sigBits = rd.ReadUInt16()
+    assert (sigBits = 16us)
     {
         CompressionCode = compCode
-        NumberOfChannels = rd.ReadUInt16()
-        SampleRate = rd.ReadUInt32()
-        AvgBytesPerSec = rd.ReadUInt32()
-        BlockAlign = rd.ReadUInt16()
-        SigBitsPerSample = rd.ReadUInt16()
+        NumberOfChannels = noChans
+        SampleRate = sr
+        AvgBytesPerSec = bps
+        BlockAlign = blockAlign
+        SigBitsPerSample = sigBits
     }
 
 let readDataChunk (rd: BinaryReader) =
@@ -207,24 +214,6 @@ let sampleRate (wav: Wav) =
     assert (sampleRates.Length = 1)
     sampleRates.[0]
 
-(*
-let findLoop (wav: Wav) : (int * int) =
-    let findStartStop (samples: uint16 []) =
-        let windowSize = (sampleRate wav) / 1000ul |> int
-        assert (samples.Length > (windowSize * 2))
-        let winSamples i = samples.[i..(i + windowSize - 1)]
-        let windows = Array.init (samples.Length - windowSize) winSamples
-        let amps =
-            windows
-            |> Array.map (fun win -> (Array.max win) - (Array.min win))
-        let maxAmp = Array.max amps
-        let mutable start = samples.Length / 10
-        let zero = 0xffff / 2
-        while Math.abs(samples.[start] - zero) > 0xf
-    extractWavSamples wav
-        |> Array.map findStartStop
-        *)
-
 let hexDisplayShorts (data: uint16 []) : unit =
     data
         |> Array.map (sprintf "%04x")
@@ -240,15 +229,56 @@ let decDisplayShorts (data: int []): unit =
     data
         |> Array.iter (int >> (printfn "%d"))
 
+let findStartStop wavFileName =
+    let wav = parseWavFile wavFileName
+    let allSamples = wav |> extractWavSamples
+    assert (allSamples.Length = 1)
+    let samples = allSamples.[0]
+    let winSize = (sampleRate wav) / 1000ul |> int
+    let windows =
+        samples.[0..(samples.Length - 1 - winSize)]
+        |> Array.mapi (fun i _ -> samples.[i..(i + winSize)])
+    let amps =
+        windows
+        |> Array.map ((fun win -> win |> Array.map System.Math.Abs) >> Array.sum)
+    let findGoodAmp amps =
+        let sortedAmps = amps |> Array.sort
+        let iMedian = amps.Length / 2
+        sortedAmps.[iMedian]
+    let goodAmp = findGoodAmp amps
+    let rec findStart iCurr iLimit =
+        if amps.[iCurr] <= goodAmp || iCurr + 1 = iLimit then
+            iCurr
+        else
+            findStart iCurr iLimit
+
+    // an eighth is a guess as to the usual location for sustain level
+    let start = findStart (amps.Length / 8) (3 * amps.Length / 5)
+    let distance (x1: int []) (x2: int []) =
+        Array.map2 (fun a b -> (abs (a - b))) x1 x2
+        |> Array.sum
+    let findStop last first =
+        let indexedL1Distances =
+            windows
+            |> Array.indexed
+            |> Array.filter (fun (i, _) -> i >= first && i <= last)
+            |> Array.map (fun (i, win) -> (i, distance win windows.[start]))
+        let folder (iCurr, curr) (iNext, next) =
+            if next < curr then
+                (iNext, next)
+            else
+                (iCurr, curr)
+        let iMin =
+            indexedL1Distances.[1..]
+            |> Array.fold folder indexedL1Distances.[0]
+            |> fst
+        iMin
+    let stop = findStop (amps.Length - (amps.Length / 8)) (amps.Length / 2)
+    (start, stop)
+
 [<EntryPoint>]
 let main argv =
     match argv with
-    (*
-    | [|pgmFileName; outPgmFileName|] ->
-        let pgm = parsePgmFile pgmFileName
-        writePgm pgm outPgmFileName
-        0
-    *)
     | [|wavFileName; "-j"|] ->
         let wav = parseWavFile wavFileName
         wav |> JsonConvert.SerializeObject |> printf "%s"
@@ -260,50 +290,7 @@ let main argv =
             |> Array.iter decDisplayShorts
         0
     | [|wavFileName|] ->
-        let wav = parseWavFile wavFileName
-        let allSamples = wav |> extractWavSamples
-        assert (allSamples.Length = 1)
-        let samples = allSamples.[0]
-        let winSize = (sampleRate wav) / 1000ul |> int
-        let windows =
-            samples.[0..(samples.Length - 1 - winSize)]
-            |> Array.mapi (fun i _ -> samples.[i..(i + winSize)])
-        let amps =
-            windows
-            |> Array.map ((fun win -> win |> Array.map System.Math.Abs) >> Array.sum)
-        let findGoodAmp amps =
-            let sortedAmps = amps |> Array.sort
-            let iMedian = amps.Length / 2
-            sortedAmps.[iMedian]
-        let goodAmp = findGoodAmp amps
-        let rec findStart iCurr iLimit =
-            if amps.[iCurr] <= goodAmp || iCurr + 1 = iLimit then
-                iCurr
-            else
-                findStart iCurr iLimit
-
-        // an eighth is a guess as to the usual location for sustain level
-        let start = findStart (amps.Length / 8) (3 * amps.Length / 5)
-        let distance (x1: int []) (x2: int []) =
-            Array.map2 (fun a b -> (abs (a - b))) x1 x2
-            |> Array.sum
-        let findStop last first =
-            let indexedL1Distances =
-                windows
-                |> Array.indexed
-                |> Array.filter (fun (i, _) -> i >= first && i <= last)
-                |> Array.map (fun (i, win) -> (i, distance win windows.[start]))
-            let folder (iCurr, curr) (iNext, next) =
-                if next < curr then
-                    (iNext, next)
-                else
-                    (iCurr, curr)
-            let iMin =
-                indexedL1Distances.[1..]
-                |> Array.fold folder indexedL1Distances.[0]
-                |> fst
-            iMin
-        let stop = findStop (amps.Length - (amps.Length / 8)) (amps.Length / 2)
+        let (start, stop) = findStartStop wavFileName
         printfn "start: %d" start
         printfn "stop: %d" stop
         0
