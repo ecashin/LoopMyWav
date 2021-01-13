@@ -187,7 +187,7 @@ let extractChunkSamples (chunk: Chunk) : int [] =
     sampleBytes
         |> Array.chunkBySize 2
         |> Array.map (fun a ->
-            ((uint a.[1]) <<< 8 ||| (uint a.[0])) |> int)
+            ((uint16 a.[1]) <<< 8 ||| (uint16 a.[0])) |> int16 |> int)
 
 let extractWavSamples (wav: Wav) : int [] [] =
     wav.Chunks
