@@ -32,9 +32,10 @@ Print CSV for the samples in the WAV file:
 
     dotnet run my.wav -s
 
-Print JSON for the parsed WAV info:
+Print JSON for the parsed WAV info and display
+it with the external tool, `jq`:
 
-    dotnet run my.wav -j
+    dotnet run my.wav -j | jq .
 
 Print start and end loop points as zero-based offsets:
 
