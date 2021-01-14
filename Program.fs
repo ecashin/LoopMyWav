@@ -318,7 +318,7 @@ let findStartStop wav =
         if amps.[iCurr] <= goodAmp || iCurr + 1 = iLimit then
             iCurr
         else
-            findStart iCurr iLimit
+            findStart (iCurr + 1) iLimit
 
     // an eighth is a guess as to the usual location for sustain level
     let start = findStart (amps.Length / 8) (3 * amps.Length / 5)
