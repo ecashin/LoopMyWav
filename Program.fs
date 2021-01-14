@@ -229,8 +229,7 @@ let decDisplayShorts (data: int []): unit =
     data
         |> Array.iter (int >> (printfn "%d"))
 
-let findStartStop wavFileName =
-    let wav = parseWavFile wavFileName
+let findStartStop wav =
     let allSamples = wav |> extractWavSamples
     assert (allSamples.Length = 1)
     let samples = allSamples.[0]
@@ -276,6 +275,79 @@ let findStartStop wavFileName =
     let stop = findStop (amps.Length - (amps.Length / 8)) (amps.Length / 2)
     (start, stop)
 
+let makeSampleLoop start stop =
+    {
+        CuePointId = 0xEDul
+        Type = 0ul
+        Start = start |> uint32
+        End = stop |> uint32
+        Fraction = 0ul
+        PlayCount = 0ul
+    }
+
+let makeSamplerChunk (sr: int) (sampleLoop: SampleLoop) =
+    eprintfn "%s" "XXX: Using 80 for DataChunkSize instead of calculated value"
+    {
+        ChunkHeader = {
+            ChunkId = "smpl"
+            ChunkDataSize = 80ul  // XXX Do this right
+        }
+        Data = SamplerChunk {
+            Manufacturer = "luck"
+            Product = "LMW "
+            SamplePeriod = 1_000_000_000.0 * (float sr) / 1.0 |> uint32
+            MidiUnityNote = 60ul
+            MidiPitchFraction = 0ul
+            SmpteFormat = 0ul
+            SmpteOffset = 0ul
+            NumSampleLoops = 1ul
+            SamplerDataSize = 0ul
+            SampleLoops = [|sampleLoop|]
+            SamplerData = "" |> asciiBytes
+        }
+    }
+
+let addLoop (wav: Wav) start stop =
+    let wavHeader = wav.Header
+    let samplerChunkIdx =
+        wav.Chunks
+        |> Array.indexed
+        |> Array.filter (fun (_, c) -> c.ChunkHeader.ChunkId = "smpl")
+        |> Array.map fst
+        |> Array.tryHead
+    let sampleLoop = makeSampleLoop start stop
+    let samplerChunk =
+        match samplerChunkIdx with
+        | Some(i) ->
+            match wav.Chunks.[i].Data with
+            | SamplerChunk(c) ->
+                {
+                    ChunkHeader = wav.Chunks.[i].ChunkHeader
+                    Data = SamplerChunk { c with SampleLoops = [|sampleLoop|] }
+                }
+            | _ -> failwith "Sampler chunk isn't a sampler chunk"
+        | None -> makeSamplerChunk (sampleRate wav |> int) sampleLoop
+    let newChunks =
+        match samplerChunkIdx with
+        | Some(i) ->
+            wav.Chunks
+            |> Array.mapi (fun j c -> if j = i then samplerChunk else c)
+        | None ->
+            let fmtChunks =
+                wav.Chunks
+                |> Array.filter (fun c -> c.ChunkHeader.ChunkId = "fmt ")
+            let otherChunks =
+                wav.Chunks
+                |> Array.filter (fun c ->
+                    let cId = c.ChunkHeader.ChunkId
+                    cId <> "fmt " && cId <> "smpl")
+            Array.append
+                (Array.append fmtChunks [|samplerChunk|])
+                otherChunks
+    {
+        wav with Chunks = newChunks
+    }
+
 [<EntryPoint>]
 let main argv =
     match argv with
@@ -290,8 +362,15 @@ let main argv =
             |> Array.iter decDisplayShorts
         0
     | [|wavFileName|] ->
-        let (start, stop) = findStartStop wavFileName
+        let wav = parseWavFile wavFileName
+        let (start, stop) = findStartStop wav
         printfn "start: %d" start
         printfn "stop: %d" stop
+        0
+    | [|inWavFileName; outWavFileName|] ->
+        let inWav = parseWavFile inWavFileName
+        let (start, stop) = findStartStop inWav
+        let outWav = addLoop inWav start stop
+        outWav |> JsonConvert.SerializeObject |> printf "%s"
         0
     | _ -> 1
