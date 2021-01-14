@@ -253,9 +253,10 @@ let extractChunkSamples (chunk: Chunk) : int [] =
     let sampleBytes =
         match chunk.Data with
         | DataChunk(c) -> c.SampleData
-        | _ -> [||]
+        | _ -> failwith "Data chunk has no chunk data"
     sampleBytes
         |> Array.chunkBySize 2
+        |> Array.filter (fun x -> x.Length = 2)
         |> Array.map (fun a ->
             ((uint16 a.[1]) <<< 8 ||| (uint16 a.[0])) |> int16 |> int)
 
@@ -293,9 +294,10 @@ let decDisplayShorts (data: int []): unit =
         |> Array.iter (int >> (printfn "%d"))
 
 let findStartStop wav =
-    let allSamples = wav |> extractWavSamples
-    assert (allSamples.Length = 1)
-    let samples = allSamples.[0]
+    let samples =
+        wav
+        |> extractWavSamples
+        |> Array.reduce Array.append
     let winSize = (sampleRate wav) / 1000ul |> int
     let windows =
         samples.[0..(samples.Length - 1 - winSize)]
@@ -456,11 +458,11 @@ let main argv =
             (path, Path.Combine(dirName, newFileName))
         let createLoopedWavFile (path: string) =
             let (inFile, outFile) = splitInOut path
+            printfn "%s -> %s" inFile outFile
             let inWav = parseWavFile inFile
             let (start, stop) = findStartStop inWav
             let outWav = addLoop inWav start stop
             writeWavFile outWav outFile
-            printfn "%s -> %s" inFile outFile
         stdInLines ()
             |> Seq.iter createLoopedWavFile
         0
