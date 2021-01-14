@@ -29,7 +29,6 @@ type FormatChunk = {
 }
 
 type DataChunk = {
-    ChunkSize: uint32
     SampleData: byte []
 }
 
@@ -68,13 +67,16 @@ type Chunk = {
 }
 
 let readChunkHeader (rd: BinaryReader) =
+    printfn "reading header at pos %u/%u" rd.BaseStream.Position rd.BaseStream.Length // XXXdebug
     if rd.BaseStream.Position % 2L = 1L then
+        printfn "%s" "reading one byte to get to word boundary"
         rd.ReadByte() |> ignore
     let hdr = {
         ChunkId = rd.ReadBytes(4)
         ChunkDataSize = rd.ReadUInt32()
     }
-    // printfn "did read %d" (hdr.ChunkDataSize |> int)
+    // XXXdebug
+    printfn "did read \"%s\" with chunk data size %d" (hdr.ChunkId |> asciiString) (hdr.ChunkDataSize |> int)
     hdr
 
 let writeChunkHeader (wr: BinaryWriter) (hdr: ChunkHeader) =
@@ -94,10 +96,13 @@ type Wav = {
 
 let readWavHeader (rd: BinaryReader) =
     let wavChnkHdr = readChunkHeader rd
-    {
+    assert (wavChnkHdr.ChunkId |> asciiString = "RIFF")
+    let wavFileHeader = {
         ChunkHeader = wavChnkHdr
         RiffType = rd.ReadBytes(4)
     }
+    assert (wavFileHeader.RiffType |> asciiString = "WAVE")
+    wavFileHeader
 
 let writeWavHeader (wr: BinaryWriter) (hdr: WavHeader) =
     writeChunkHeader wr hdr.ChunkHeader
@@ -131,15 +136,7 @@ let writeFormatChunkData (wr: BinaryWriter) (f: FormatChunk) =
     wr.Write(f.BlockAlign)
     wr.Write(f.SigBitsPerSample)
 
-let readDataChunk (rd: BinaryReader) =
-    let chunkSize = rd.ReadUInt32()
-    {
-        ChunkSize = chunkSize
-        SampleData = rd.ReadBytes(chunkSize |> int)
-    }
-
 let writeDataChunkData (wr: BinaryWriter) (d: DataChunk) =
-    wr.Write(d.ChunkSize)
     wr.Write(d.SampleData)
 
 let rec readSampleLoops (rd: BinaryReader) (n: uint32) =
@@ -208,7 +205,9 @@ let writeSamplerChunkData (wr: BinaryWriter) (s: SamplerChunk) =
 let readChunkData (rd: BinaryReader) (hdr: ChunkHeader) =
     match hdr.ChunkId |> asciiString with
     | "fmt " -> FormatChunk (readFormatChunk rd)
-    | "data" -> DataChunk (readDataChunk rd)
+    | "data" -> DataChunk ({
+        SampleData = rd.ReadBytes(hdr.ChunkDataSize |> int)
+    })
     | "smpl" -> SamplerChunk (readSamplerChunk rd)
     | _ -> GenericChunk (rd.ReadBytes(hdr.ChunkDataSize |> int))
 
