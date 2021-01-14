@@ -247,18 +247,22 @@ let writeWavFile (wav: Wav) (outFileName: string) =
 let isSamplesChunk (chunk: Chunk) =
     match chunk.Data with
     | DataChunk(_) -> true
+    | GenericChunk(_) -> true
     | _ -> false
 
 let extractChunkSamples (chunk: Chunk) : int [] =
     let sampleBytes =
         match chunk.Data with
         | DataChunk(c) -> c.SampleData
+        | GenericChunk(c) -> c
         | _ -> failwith "Data chunk has no chunk data"
-    sampleBytes
+    let samples =
+        sampleBytes
         |> Array.chunkBySize 2
         |> Array.filter (fun x -> x.Length = 2)
         |> Array.map (fun a ->
             ((uint16 a.[1]) <<< 8 ||| (uint16 a.[0])) |> int16 |> int)
+    samples
 
 let extractWavSamples (wav: Wav) : int [] [] =
     wav.Chunks
