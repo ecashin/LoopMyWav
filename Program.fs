@@ -2,7 +2,6 @@
 // https://sites.google.com/site/musicgapi/technical-documents/wav-file-format#wavefileheader
 // for the format description.
 open Newtonsoft.Json
-open NumSharp
 open System.IO
 
 let asciiString (bytes: byte []) =
@@ -12,7 +11,7 @@ let asciiBytes (s: string) =
     System.Text.Encoding.ASCII.GetBytes s
 
 type ChunkHeader = {
-    ChunkId: string         // 4
+    ChunkId: byte []         // 4
     ChunkDataSize: uint32
 }
 
@@ -43,8 +42,8 @@ type SampleLoop = {
 }
 
 type SamplerChunk = {
-    Manufacturer: string    // 4
-    Product: string         // 4
+    Manufacturer: byte []    // 4
+    Product: byte []         // 4
     SamplePeriod: uint32
     MidiUnityNote: uint32
     MidiPitchFraction: uint32
@@ -68,14 +67,21 @@ type Chunk = {
 }
 
 let readChunkHeader (rd: BinaryReader) =
-    {
-        ChunkId = rd.ReadBytes(4) |> asciiString
-        ChunkDataSize = rd.ReadUInt32()       
+    let hdr = {
+        ChunkId = rd.ReadBytes(4)
+        ChunkDataSize = rd.ReadUInt32()
     }
+    // printfn "did read %d" (hdr.ChunkDataSize |> int)
+    hdr
+
+let writeChunkHeader (wr: BinaryWriter) (hdr: ChunkHeader) =
+    wr.Write(hdr.ChunkId)
+    // failwith (sprintf "%d" (hdr.ChunkDataSize |> int))
+    wr.Write(hdr.ChunkDataSize)
 
 type WavHeader = {
     ChunkHeader: ChunkHeader
-    RiffType: string        // 4
+    RiffType: byte []        // 4
 }
 
 type Wav = {
@@ -87,8 +93,12 @@ let readWavHeader (rd: BinaryReader) =
     let wavChnkHdr = readChunkHeader rd
     {
         ChunkHeader = wavChnkHdr
-        RiffType = rd.ReadBytes(4) |> asciiString
+        RiffType = rd.ReadBytes(4)
     }
+
+let writeWavHeader (wr: BinaryWriter) (hdr: WavHeader) =
+    writeChunkHeader wr hdr.ChunkHeader
+    wr.Write(hdr.RiffType)
 
 let readFormatChunk (rd: BinaryReader) =
     let compCode = rd.ReadUInt16()
@@ -109,12 +119,24 @@ let readFormatChunk (rd: BinaryReader) =
         SigBitsPerSample = sigBits
     }
 
+let writeFormatChunkData (wr: BinaryWriter) (f: FormatChunk) =
+    wr.Write(f.CompressionCode)
+    wr.Write(f.NumberOfChannels)
+    wr.Write(f.SampleRate)
+    wr.Write(f.AvgBytesPerSec)
+    wr.Write(f.BlockAlign)
+    wr.Write(f.SigBitsPerSample)
+
 let readDataChunk (rd: BinaryReader) =
     let chunkSize = rd.ReadUInt32()
     {
         ChunkSize = chunkSize
         SampleData = rd.ReadBytes(chunkSize |> int)
     }
+
+let writeDataChunkData (wr: BinaryWriter) (d: DataChunk) =
+    wr.Write(d.ChunkSize)
+    wr.Write(d.SampleData)
 
 let rec readSampleLoops (rd: BinaryReader) (n: uint32) =
     match n with
@@ -131,9 +153,19 @@ let rec readSampleLoops (rd: BinaryReader) (n: uint32) =
             } :: (readSampleLoops rd (n - 1u))
         )
 
+let writeSampleLoops (wr: BinaryWriter) (loops: SampleLoop []) =
+    let wrLoop loop =
+        wr.Write(loop.CuePointId)
+        wr.Write(loop.Type)
+        wr.Write(loop.Start)
+        wr.Write(loop.End)
+        wr.Write(loop.Fraction)
+        wr.Write(loop.PlayCount)
+    loops |> Array.iter wrLoop
+
 let readSamplerChunk (rd: BinaryReader) =
-    let manufacturer = rd.ReadBytes(4) |> asciiString
-    let product = rd.ReadBytes(4) |> asciiString
+    let manufacturer = rd.ReadBytes(4)
+    let product = rd.ReadBytes(4)
     let samplePeriod = rd.ReadUInt32()
     let midiUnityNote = rd.ReadUInt32()
     let midiPitchFraction = rd.ReadUInt32()
@@ -156,8 +188,21 @@ let readSamplerChunk (rd: BinaryReader) =
         SamplerData = rd.ReadBytes(samplerDataSize |> int)
     }
 
+let writeSamplerChunkData (wr: BinaryWriter) (s: SamplerChunk) =
+    wr.Write(s.Manufacturer)
+    wr.Write(s.Product)
+    wr.Write(s.SamplePeriod)
+    wr.Write(s.MidiUnityNote)
+    wr.Write(s.MidiPitchFraction)
+    wr.Write(s.SmpteFormat)
+    wr.Write(s.SmpteOffset)
+    wr.Write(s.NumSampleLoops)
+    wr.Write(s.SamplerDataSize)
+    writeSampleLoops wr s.SampleLoops
+    wr.Write(s.SamplerData)
+
 let readChunkData (rd: BinaryReader) (hdr: ChunkHeader) =
-    match hdr.ChunkId with
+    match hdr.ChunkId |> asciiString with
     | "fmt " -> FormatChunk (readFormatChunk rd)
     | "data" -> DataChunk (readDataChunk rd)
     | "smpl" -> SamplerChunk (readSamplerChunk rd)
@@ -173,6 +218,18 @@ let rec readChunks (rd: BinaryReader) =
             Data = readChunkData rd hdr
         } :: (readChunks rd)
 
+let rec writeChunks (wr: BinaryWriter) (chunks: List<Chunk>) =
+    match chunks with
+    | [] -> ()
+    | c::rest ->
+        writeChunkHeader wr c.ChunkHeader
+        match c.Data with
+        | FormatChunk(f) -> writeFormatChunkData wr f
+        | DataChunk(d) -> writeDataChunkData wr d
+        | SamplerChunk(s) -> writeSamplerChunkData wr s
+        | GenericChunk(g) -> wr.Write(g)
+        writeChunks wr rest
+
 let parseWavFile (wavFileName: string) =
     use rd = new BinaryReader(File.Open(wavFileName, FileMode.Open))
     let wavHdr = (readWavHeader rd)
@@ -180,6 +237,11 @@ let parseWavFile (wavFileName: string) =
         Header = wavHdr
         Chunks = readChunks rd |> List.toArray
     }
+
+let writeWavFile (wav: Wav) (outFileName: string) =
+    use wr = new BinaryWriter(File.Open(outFileName, FileMode.Create))
+    writeWavHeader wr wav.Header
+    writeChunks wr (wav.Chunks |> Array.toList)
 
 let isSamplesChunk (chunk: Chunk) =
     match chunk.Data with
@@ -286,15 +348,14 @@ let makeSampleLoop start stop =
     }
 
 let makeSamplerChunk (sr: int) (sampleLoop: SampleLoop) =
-    eprintfn "%s" "XXX: Using 80 for DataChunkSize instead of calculated value"
     {
         ChunkHeader = {
-            ChunkId = "smpl"
-            ChunkDataSize = 80ul  // XXX Do this right
+            ChunkId = "smpl" |> asciiBytes
+            ChunkDataSize = 36ul + 24ul
         }
         Data = SamplerChunk {
-            Manufacturer = "luck"
-            Product = "LMW "
+            Manufacturer = "EdLC" |> asciiBytes
+            Product = "L00p" |> asciiBytes
             SamplePeriod = 1_000_000_000.0 * (float sr) / 1.0 |> uint32
             MidiUnityNote = 60ul
             MidiPitchFraction = 0ul
@@ -307,12 +368,14 @@ let makeSamplerChunk (sr: int) (sampleLoop: SampleLoop) =
         }
     }
 
+
 let addLoop (wav: Wav) start stop =
-    let wavHeader = wav.Header
+    let samplerChunkId = "smpl" |> asciiBytes
+    let formatChunkId = "fmt " |> asciiBytes
     let samplerChunkIdx =
         wav.Chunks
         |> Array.indexed
-        |> Array.filter (fun (_, c) -> c.ChunkHeader.ChunkId = "smpl")
+        |> Array.filter (fun (_, c) -> c.ChunkHeader.ChunkId = samplerChunkId)
         |> Array.map fst
         |> Array.tryHead
     let sampleLoop = makeSampleLoop start stop
@@ -335,17 +398,24 @@ let addLoop (wav: Wav) start stop =
         | None ->
             let fmtChunks =
                 wav.Chunks
-                |> Array.filter (fun c -> c.ChunkHeader.ChunkId = "fmt ")
+                |> Array.filter (fun c -> c.ChunkHeader.ChunkId = formatChunkId)
             let otherChunks =
                 wav.Chunks
                 |> Array.filter (fun c ->
                     let cId = c.ChunkHeader.ChunkId
-                    cId <> "fmt " && cId <> "smpl")
+                    cId <> formatChunkId && cId <> samplerChunkId)
             Array.append
                 (Array.append fmtChunks [|samplerChunk|])
                 otherChunks
+    let newSize = wav.Header.ChunkHeader.ChunkDataSize + samplerChunk.ChunkHeader.ChunkDataSize
+    let newWavChunkHdr = {
+        wav.Header.ChunkHeader with ChunkDataSize = newSize
+    }
+    let newWavHeader = {
+        wav.Header with ChunkHeader = newWavChunkHdr
+    }
     {
-        wav with Chunks = newChunks
+        wav with Chunks = newChunks; Header = newWavHeader
     }
 
 [<EntryPoint>]
@@ -371,6 +441,7 @@ let main argv =
         let inWav = parseWavFile inWavFileName
         let (start, stop) = findStartStop inWav
         let outWav = addLoop inWav start stop
-        outWav |> JsonConvert.SerializeObject |> printf "%s"
+        // outWav |> JsonConvert.SerializeObject |> printf "%s"
+        writeWavFile outWav outWavFileName
         0
     | _ -> 1
