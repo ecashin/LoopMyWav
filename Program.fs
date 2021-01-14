@@ -105,6 +105,7 @@ let readFormatChunk (rd: BinaryReader) =
     let compCode = rd.ReadUInt16()
     assert (compCode = 1us)
     let noChans = rd.ReadUInt16()
+    assert (noChans = 1us)
     let sr = rd.ReadUInt32()
     let bps = rd.ReadUInt32()
     let blockAlign = rd.ReadUInt16()

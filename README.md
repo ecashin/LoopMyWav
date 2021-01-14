@@ -1,6 +1,7 @@
 # LoopMyWav
 
-This software is for uncompressed 16-bit PCM WAV files
+This software is for uncompressed
+16-bit PCM WAV files
 as used in the Akai MPC 1000.
 Specifically, it is for creating loop points for one-note
 samples of synths and other sounds
@@ -17,6 +18,10 @@ However, the loop points often must be set manually.
 This software currently reads in the WAV file and parses
 its information, performing different actions depening on usage
 as shown below.
+
+The MPC 1000 handles stereo samples,
+but LoopMyWav does not yet.
+Only mono WAV files are supported.
 
 ## Best Effort
 
