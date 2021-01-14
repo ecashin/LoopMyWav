@@ -41,6 +41,11 @@ Print start and end loop points as zero-based offsets:
 
     dotnet run my.wav
 
+Batch convert files named on lines of standard input,
+creating `a/b/foo-LMW.wav` from `a/b/foo.wav`.
+
+    dotnet run
+
 ## Dependencies
 
 This software requires the .NET Core 5 SDK
@@ -49,6 +54,5 @@ Required libraries are installed
 when the software is run
 in place using the usage patterns above.
 
-## Coming Soon
-
-Next the software will write a new WAV file with embedded loop points.
+The `jq` tool is nice for JSON output
+but is not required.
