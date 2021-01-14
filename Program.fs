@@ -2,6 +2,7 @@
 // https://sites.google.com/site/musicgapi/technical-documents/wav-file-format#wavefileheader
 // for the format description.
 open Newtonsoft.Json
+open System
 open System.IO
 
 let asciiString (bytes: byte []) =
@@ -418,6 +419,14 @@ let addLoop (wav: Wav) start stop =
         wav with Chunks = newChunks; Header = newWavHeader
     }
 
+let rec stdInLines () =
+    seq {
+        let line = Console.ReadLine()
+        if not (isNull line) then
+            yield line
+            yield! stdInLines ()
+    }
+
 [<EntryPoint>]
 let main argv =
     match argv with
@@ -436,6 +445,24 @@ let main argv =
         let (start, stop) = findStartStop wav
         printfn "start: %d" start
         printfn "stop: %d" stop
+        0
+    | [| |] ->
+        let splitInOut (path: string) =
+            let dirName = Path.GetDirectoryName(path)
+            let baseName = Path.GetFileNameWithoutExtension(path)
+            let ext = Path.GetExtension(path)
+            let newFileName =
+                sprintf "%s-LMW%s" baseName ext
+            (path, Path.Combine(dirName, newFileName))
+        let createLoopedWavFile (path: string) =
+            let (inFile, outFile) = splitInOut path
+            let inWav = parseWavFile inFile
+            let (start, stop) = findStartStop inWav
+            let outWav = addLoop inWav start stop
+            writeWavFile outWav outFile
+            printfn "%s -> %s" inFile outFile
+        stdInLines ()
+            |> Seq.iter createLoopedWavFile
         0
     | [|inWavFileName; outWavFileName|] ->
         let inWav = parseWavFile inWavFileName
