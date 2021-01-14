@@ -68,6 +68,8 @@ type Chunk = {
 }
 
 let readChunkHeader (rd: BinaryReader) =
+    if rd.BaseStream.Position % 2L = 1L then
+        rd.ReadByte() |> ignore
     let hdr = {
         ChunkId = rd.ReadBytes(4)
         ChunkDataSize = rd.ReadUInt32()
