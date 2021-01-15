@@ -67,21 +67,17 @@ type Chunk = {
 }
 
 let readChunkHeader (rd: BinaryReader) =
-    printfn "reading header at pos %u/%u" rd.BaseStream.Position rd.BaseStream.Length // XXXdebug
     if rd.BaseStream.Position % 2L = 1L then
-        printfn "%s" "reading one byte to get to word boundary"
+        eprintfn "%s" "reading one byte to get to word boundary"
         rd.ReadByte() |> ignore
     let hdr = {
         ChunkId = rd.ReadBytes(4)
         ChunkDataSize = rd.ReadUInt32()
     }
-    // XXXdebug
-    printfn "did read \"%s\" with chunk data size %d" (hdr.ChunkId |> asciiString) (hdr.ChunkDataSize |> int)
     hdr
 
 let writeChunkHeader (wr: BinaryWriter) (hdr: ChunkHeader) =
     wr.Write(hdr.ChunkId)
-    // failwith (sprintf "%d" (hdr.ChunkDataSize |> int))
     wr.Write(hdr.ChunkDataSize)
 
 type WavHeader = {
@@ -467,6 +463,7 @@ let main argv =
             printfn "%s -> %s" inFile outFile
             let inWav = parseWavFile inFile
             let (start, stop) = findStartStop inWav
+            printfn "    loop from %d to %d" start stop
             let outWav = addLoop inWav start stop
             writeWavFile outWav outFile
         stdInLines ()
