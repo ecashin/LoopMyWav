@@ -237,9 +237,25 @@ let parseWavFile (wavFileName: string) =
         Chunks = readChunks rd |> List.toArray
     }
 
+let calculateChunkSize (chunk: Chunk) =
+    chunk.ChunkHeader.ChunkDataSize + 8u  // add eight-byte header size
+
+let calculateWavSize (wav: Wav) =
+    let size =
+        0u +    // 8-byte file header doesn't count
+        4u +    // RIFF type
+        (wav.Chunks |> Array.sumBy calculateChunkSize)
+    size
+
 let writeWavFile (wav: Wav) (outFileName: string) =
     use wr = new BinaryWriter(File.Open(outFileName, FileMode.Create))
-    writeWavHeader wr wav.Header
+    let wavSize = calculateWavSize wav
+    let chunkHeader = {
+        wav.Header.ChunkHeader with ChunkDataSize = wavSize
+    }
+    writeWavHeader wr {
+        wav.Header with ChunkHeader = chunkHeader
+    }
     writeChunks wr (wav.Chunks |> Array.toList)
 
 let isSamplesChunk (chunk: Chunk) =
