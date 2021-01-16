@@ -1,6 +1,8 @@
 // Thanks to
 // https://sites.google.com/site/musicgapi/technical-documents/wav-file-format#wavefileheader
 // for the format description.
+open MathNet.Numerics.Random
+open MathNet.Numerics.Distributions
 open Newtonsoft.Json
 open System
 open System.IO
@@ -389,7 +391,6 @@ let makeSamplerChunk (sr: int) (sampleLoop: SampleLoop) =
         }
     }
 
-
 let addLoop (wav: Wav) start stop =
     let samplerChunkId = "smpl" |> asciiBytes
     let formatChunkId = "fmt " |> asciiBytes
@@ -447,6 +448,87 @@ let rec stdInLines () =
             yield! stdInLines ()
     }
 
+let splitSample (s: int) =
+    let short = s |> uint16
+    [|short &&& 0xffus |> byte; short >>> 8 |> byte|]
+
+let replaceSamples (wav: Wav) (newSamples: int []) =
+    let takeSamples i nBytes =
+        assert (nBytes % 2 = 0)
+        let last = i + 2 * nBytes
+        let sampleBytes =
+            newSamples.[i..last]
+            |> Array.map splitSample
+            |> Array.reduce Array.append
+        (last + 1, sampleBytes)
+    let rec newChunks chunkIdx sampleIdx chunks =
+        if chunkIdx = wav.Chunks.Length then
+            List.rev chunks
+        else
+            let chunk = wav.Chunks.[chunkIdx]
+            let newSampleIdx, (newSampleData: byte []) =
+                match chunk.Data with
+                    | DataChunk(d) -> takeSamples sampleIdx d.SampleData.Length
+                    | GenericChunk(g) -> takeSamples sampleIdx g.Length
+                    | _ -> (sampleIdx, [||])
+            let newChunk =
+                if newSampleData.Length = 0 then
+                    chunk
+                else {
+                    ChunkHeader = chunk.ChunkHeader
+                    Data = DataChunk {
+                        SampleData = newSampleData
+                    }
+                }
+            newChunk :: (newChunks (chunkIdx + 1) newSampleIdx chunks)
+    let wavSize = newSamples.Length * 2 + 4
+    {
+        Header = {
+            ChunkHeader = {
+                ChunkId = "RIFF" |> asciiBytes
+                ChunkDataSize = wavSize |> uint32
+            }
+            RiffType = "WAVE" |> asciiBytes
+        }
+        Chunks = (newChunks 0 0 []) |> List.toArray
+    }
+
+let clipToInt16 (s: int) =
+    System.Math.Clamp(s, Int16.MinValue |> int, Int16.MaxValue |> int)
+
+let addNoise wetToDry wav =
+    assert (wetToDry >= 0.0 && wetToDry <= 1.0)
+    let sr = sampleRate wav |> int
+    let span = sr |> float  // one second max delay time
+    let samples =
+        extractWavSamples wav
+        |> Array.reduce Array.append
+    let rng = SystemRandomSource.Default
+    let sticky = sr / 2 |> float    // max time before delay time updates
+    let nextPersist () =
+        ((rng.NextDouble()) * sticky) |> Math.Round |> int
+    let nextDelay () =
+        ((rng.NextDouble()) * span) |> Math.Round |> int
+    let mutable persist = 0
+    let mutable delay = 0
+    let mix fxSample drySample =
+        let dry = (1.0 - wetToDry) * (drySample |> float)
+        let wet = wetToDry * (fxSample |> float)
+        (dry + wet) |> Math.Round |> int
+    let noiseDelay i s =
+        if persist = 0 then
+            persist <- nextPersist()
+            delay <- nextDelay()
+        else
+            persist <- persist - 1
+        let j = min 0 (i - delay)
+        mix samples.[j] s
+    let newSamples =
+        samples
+        |> Array.mapi noiseDelay
+        |> Array.map clipToInt16
+    replaceSamples wav newSamples
+
 [<EntryPoint>]
 let main argv =
     match argv with
@@ -490,6 +572,11 @@ let main argv =
         let (start, stop) = findStartStop inWav
         let outWav = addLoop inWav start stop
         // outWav |> JsonConvert.SerializeObject |> printf "%s"
+        writeWavFile outWav outWavFileName
+        0
+    | [|inWavFileName; "-N"; outWavFileName|] ->
+        let inWav = parseWavFile inWavFileName
+        let outWav = addNoise 0.5 inWav
         writeWavFile outWav outWavFileName
         0
     | _ -> 1
