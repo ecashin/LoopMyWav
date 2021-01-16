@@ -463,7 +463,7 @@ let replaceSamples (wav: Wav) (newSamples: int []) =
         (last + 1, sampleBytes)
     let rec newChunks chunkIdx sampleIdx chunks =
         if chunkIdx = wav.Chunks.Length then
-            List.rev chunks
+            chunks
         else
             let chunk = wav.Chunks.[chunkIdx]
             let newSampleIdx, (newSampleData: byte []) =
@@ -481,7 +481,7 @@ let replaceSamples (wav: Wav) (newSamples: int []) =
                     }
                 }
             newChunk :: (newChunks (chunkIdx + 1) newSampleIdx chunks)
-    let wavSize = newSamples.Length * 2 + 4
+    let wavSize = newSamples.Length * 2 + 8 (* data chunk header *) + 4 (* riff type*)
     {
         Header = {
             ChunkHeader = {
@@ -499,29 +499,40 @@ let clipToInt16 (s: int) =
 let addNoise wetToDry wav =
     assert (wetToDry >= 0.0 && wetToDry <= 1.0)
     let sr = sampleRate wav |> int
-    let span = sr |> float  // one second max delay time
+    let span = sr / 2 |> float  // one second max delay time
     let samples =
         extractWavSamples wav
         |> Array.reduce Array.append
     let rng = SystemRandomSource.Default
-    let sticky = sr / 2 |> float    // max time before delay time updates
+    let sticky = sr / 100 |> float    // max time before delay time updates
     let nextPersist () =
         ((rng.NextDouble()) * sticky) |> Math.Round |> int
     let nextDelay () =
         ((rng.NextDouble()) * span) |> Math.Round |> int
+    let approach (curr: int) (tgt: int) =
+        let diff = curr - tgt
+        curr - ((Math.Ceiling((diff |> float) / 100.0)) |> int)
     let mutable persist = 0
     let mutable delay = 0
+    let mutable delayTarget = 0
+    let mutable lastWet = wetToDry / 1000.0
+    let nudge from toward =
+        let sloth = 0.9
+        (from * sloth) + (toward * (1.0 - sloth))
     let mix fxSample drySample =
-        let dry = (1.0 - wetToDry) * (drySample |> float)
-        let wet = wetToDry * (fxSample |> float)
+        let thisWet = nudge lastWet (wetToDry * rng.NextDouble())
+        lastWet <- thisWet
+        let dry = (1.0 - thisWet) * (drySample |> float)
+        let wet = thisWet * (fxSample |> float)
         (dry + wet) |> Math.Round |> int
     let noiseDelay i s =
         if persist = 0 then
             persist <- nextPersist()
-            delay <- nextDelay()
+            delayTarget <- nextDelay()
         else
+            delay <- approach delay delayTarget
             persist <- persist - 1
-        let j = min 0 (i - delay)
+        let j = max 0 (i - delay)
         mix samples.[j] s
     let newSamples =
         samples
@@ -576,7 +587,7 @@ let main argv =
         0
     | [|inWavFileName; "-N"; outWavFileName|] ->
         let inWav = parseWavFile inWavFileName
-        let outWav = addNoise 0.5 inWav
+        let outWav = addNoise 0.03 inWav
         writeWavFile outWav outWavFileName
         0
     | _ -> 1
