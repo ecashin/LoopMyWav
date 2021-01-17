@@ -499,7 +499,7 @@ let clipToInt16 (s: int) =
 let addNoise wetToDry wav =
     assert (wetToDry >= 0.0 && wetToDry <= 1.0)
     let sr = sampleRate wav |> int
-    let span = sr / 2 |> float  // one second max delay time
+    let span = sr / 2 |> float  // one half second max delay time
     let samples =
         extractWavSamples wav
         |> Array.reduce Array.append
@@ -587,7 +587,7 @@ let main argv =
         0
     | [|inWavFileName; "-N"; outWavFileName|] ->
         let inWav = parseWavFile inWavFileName
-        let outWav = addNoise 0.03 inWav
+        let outWav = addNoise 0.4 inWav
         writeWavFile outWav outWavFileName
         0
     | _ -> 1
