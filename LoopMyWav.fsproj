@@ -5,6 +5,7 @@
     <TargetFramework>netcoreapp5.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Walkers.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

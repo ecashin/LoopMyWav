@@ -543,6 +543,9 @@ let addNoise wetToDry wav =
 [<EntryPoint>]
 let main argv =
     match argv with
+    | [|"-W"; nReps|] ->
+        Walkers.demo (int nReps)
+        0
     | [|wavFileName; "-j"|] ->
         let wav = parseWavFile wavFileName
         wav |> JsonConvert.SerializeObject |> printf "%s"
