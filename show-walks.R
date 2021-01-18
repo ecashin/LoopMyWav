@@ -12,5 +12,8 @@ show_walks <- function(file_name) {
 
 show_pos <- function(file_name) {
     d <- read_csv(file_name)
-    ggplot(d, aes(x=step, y=pos, color=walker)) + geom_line()
+    pos <- ggplot(d, aes(x=step, y=pos, color=walker)) + geom_line()
+    speed <- ggplot(d, aes(x=step, y=speed, color=walker)) + geom_line()
+    acc <- ggplot(d, aes(x=step, y=acc, color=walker)) + geom_line()
+    grid.arrange(acc, speed, pos, nrow=3)
 }
