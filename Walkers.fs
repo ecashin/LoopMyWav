@@ -17,15 +17,23 @@ type State = {
 }
 
 let makeWalker (accelA, accelB) (speedA, speedB) (posA, posB) (updateEvery: int) =
+    let bounce (curr: State) =
+        let nextPos = curr.Pos + curr.Speed
+        let nextSpeed =
+            if nextPos > posB || nextPos < posA then
+                -1. * curr.Speed
+            else
+                Math.Clamp(curr.Speed + curr.Acc, speedA, speedB)
+        Math.Clamp(nextPos, posA, posB), nextSpeed
     let step (curr: State) =
         assert (curr.Delay >= 0)
-        let nextSpeed = Math.Clamp(curr.Speed + curr.Acc, speedA, speedB)
-        let nextPos = Math.Clamp(curr.Pos + curr.Speed, posA, posB)
+        let nextPos, nextSpeed = bounce curr
         let nextAccel, nextDelay =
             if curr.Delay > 0 then
                 curr.Acc, curr.Delay - 1
             else
-                randForRange accelA accelB, updateEvery
+                let newAcc = randForRange accelA accelB
+                newAcc, updateEvery
         {
             Acc = nextAccel
             Speed = nextSpeed
