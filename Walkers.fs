@@ -26,33 +26,39 @@ let makeWalker (accelA, accelB) (speedA, speedB) (posA, posB) (updateEvery: int)
                 Math.Clamp(curr.Speed + curr.Acc, speedA, speedB)
         Math.Clamp(nextPos, posA, posB), nextSpeed
     let midPos = (posA + posB) / 2.
-    let shy nextPos nextSpeed =
-        if nextSpeed < 0. && nextPos < midPos then
-            nextPos, nextSpeed * (nextPos - posA) / (posB - posA)
-        else if nextSpeed > 0. && nextPos > midPos then
-            nextPos, nextSpeed * (posB - nextPos) / (posB - posA)
-        else
-            nextPos, nextSpeed
+    let shy s =
+        let acc =
+            if s.Speed < 0. && s.Acc < 0. && s.Pos < midPos then
+                s.Acc * (s.Pos - posA) / (posB - posA)
+            else if s.Speed > 0. && s.Acc > 0. && s.Pos > midPos then
+                s.Acc * (posB - s.Pos) / (posB - posA)
+            else
+                s.Acc
+        {
+            s with Acc = acc
+        }
     let step (curr: State) =
         assert (curr.Delay >= 0)
-        let nextPos, nextSpeed = bounce curr ||> shy
+        let nextPos, nextSpeed = bounce curr
         let nextAccel, nextDelay =
             if curr.Delay > 0 then
                 curr.Acc, curr.Delay - 1
             else
                 let newAcc = randForRange accelA accelB
                 newAcc, updateEvery
-        {
+        let nextState = {
             Acc = nextAccel
             Speed = nextSpeed
             Pos = nextPos
             Delay = nextDelay
         }
+        shy nextState
     step
 
 let demo nReps =
-    let a = makeWalker (-1., 1.) (-5., 5.) (-100., -1.) 10
-    let b = makeWalker (-1., 1.) (-5., 5.) (-100., -1.) 100
+    // a is more crazy because of greater acceleration range and shorter update interval
+    let a = makeWalker (-0.4, 0.4) (-5., 5.) (-100., -1.) 10
+    let b = makeWalker (-0.2, 0.2) (-5., 5.) (-100., -1.) 100
     let initialState = {
         Acc = 0.0
         Speed = 0.0
