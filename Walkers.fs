@@ -74,3 +74,5 @@ let demo nReps =
             printfn "b,%d,%f,%f,%f" curr bState.Acc bState.Speed bState.Pos
             repeat (a aState) (b bState) (curr + 1) n
     repeat initialState initialState 1 nReps
+
+type Walker = State -> State

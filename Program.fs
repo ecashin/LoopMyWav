@@ -496,47 +496,39 @@ let replaceSamples (wav: Wav) (newSamples: int []) =
 let clipToInt16 (s: int) =
     System.Math.Clamp(s, Int16.MinValue |> int, Int16.MaxValue |> int)
 
-let addNoise wetToDry wav =
+let addNoise wetToDry (wlks: Walkers.Walker []) wav =
     assert (wetToDry >= 0.0 && wetToDry <= 1.0)
     let sr = sampleRate wav |> int
-    let span = sr / 2 |> float  // one half second max delay time
+    let mutable states: Walkers.State [] =
+        Array.init wlks.Length (fun _ -> {
+            Acc = 0.0
+            Speed = 0.0
+            Pos = -1.0
+            Delay = 10
+        })
+    assert (wlks.Length = states.Length)
     let samples =
         extractWavSamples wav
         |> Array.reduce Array.append
-    let rng = SystemRandomSource.Default
-    let sticky = sr / 100 |> float    // max time before delay time updates
-    let nextPersist () =
-        ((rng.NextDouble()) * sticky) |> Math.Round |> int
-    let nextDelay () =
-        ((rng.NextDouble()) * span) |> Math.Round |> int
-    let approach (curr: int) (tgt: int) =
-        let diff = curr - tgt
-        curr - ((Math.Ceiling((diff |> float) / 100.0)) |> int)
-    let mutable persist = 0
-    let mutable delay = 0
-    let mutable delayTarget = 0
-    let mutable lastWet = wetToDry / 1000.0
-    let nudge from toward =
-        let sloth = 0.9
-        (from * sloth) + (toward * (1.0 - sloth))
-    let mix fxSample drySample =
-        let thisWet = nudge lastWet (wetToDry * rng.NextDouble())
-        lastWet <- thisWet
-        let dry = (1.0 - thisWet) * (drySample |> float)
-        let wet = thisWet * (fxSample |> float)
-        (dry + wet) |> Math.Round |> int
-    let noiseDelay i s =
-        if persist = 0 then
-            persist <- nextPersist()
-            delayTarget <- nextDelay()
-        else
-            delay <- approach delay delayTarget
-            persist <- persist - 1
-        let j = max 0 (i - delay)
-        mix samples.[j] s
+    let mixDryWet (dry: int) (wet: int) =
+        let d = dry |> float
+        let w = wet |> float
+        Math.Round((1.0 - wetToDry) * d + wetToDry * w) |> int
+    let addNoiseFromWalkers i smpl =
+        let delaySamples =
+            wlks
+            |> Array.mapi (fun walkerIndex doStep ->
+                let delayOffset = (Math.Round(states.[walkerIndex].Pos)) |> int
+                let j = max (i + delayOffset) 0
+                // printfn "walkerIndex:%d delayOffset:%d i:%d j:%d samples.Length:%d" walkerIndex delayOffset i j samples.Length
+                states.[walkerIndex] <- doStep states.[walkerIndex]
+                samples.[j]
+            )
+        let wet = (Array.sum delaySamples) / delaySamples.Length
+        mixDryWet smpl wet
     let newSamples =
         samples
-        |> Array.mapi noiseDelay
+        |> Array.mapi addNoiseFromWalkers
         |> Array.map clipToInt16
     replaceSamples wav newSamples
 
@@ -588,9 +580,11 @@ let main argv =
         // outWav |> JsonConvert.SerializeObject |> printf "%s"
         writeWavFile outWav outWavFileName
         0
-    | [|inWavFileName; "-N"; outWavFileName|] ->
+    | [|inWavFileName; "-N"; outWavFileName; wetToDry; aMostNeg; bMostNeg|] ->
         let inWav = parseWavFile inWavFileName
-        let outWav = addNoise 0.4 inWav
+        let walkerA = Walkers.makeWalker (-0.4, 0.4) (-1., 1.) (-(aMostNeg |> float), -1.) 10
+        let walkerB = Walkers.makeWalker (-0.4, 0.4) (-1., 1.) (-(bMostNeg |> float), -1.) 100
+        let outWav = addNoise (float wetToDry) [|walkerA; walkerB|] inWav
         writeWavFile outWav outWavFileName
         0
     | _ -> 1
