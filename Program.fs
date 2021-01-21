@@ -532,6 +532,16 @@ let addNoise wetToDry (wlks: Walkers.Walker []) wav =
         |> Array.map clipToInt16
     replaceSamples wav newSamples
 
+type Config = {
+    OutFileName: string
+    WetToDry: float
+    WalkerDefs: Walkers.WalkerDef []
+}
+
+let configFromJsonFile fName =
+    use f = File.OpenText(fName)
+    JsonConvert.DeserializeObject<Config>(f.ReadToEnd())
+
 [<EntryPoint>]
 let main argv =
     match argv with
@@ -580,11 +590,12 @@ let main argv =
         // outWav |> JsonConvert.SerializeObject |> printf "%s"
         writeWavFile outWav outWavFileName
         0
-    | [|inWavFileName; "-N"; outWavFileName; wetToDry; aMostNeg; bMostNeg|] ->
+    | [|inWavFileName; "-N"; jsonConfigFileName|] ->
+        let cfg = configFromJsonFile jsonConfigFileName
         let inWav = parseWavFile inWavFileName
-        let walkerA = Walkers.makeWalker (-0.4, 0.4) (-1., 1.) (-(aMostNeg |> float), -1.) 10
-        let walkerB = Walkers.makeWalker (-0.4, 0.4) (-1., 1.) (-(bMostNeg |> float), -1.) 100
-        let outWav = addNoise (float wetToDry) [|walkerA; walkerB|] inWav
-        writeWavFile outWav outWavFileName
+        let outWav =
+            addNoise cfg.WetToDry (cfg.WalkerDefs |> Array.map Walkers.makeWalker) inWav
+        writeWavFile outWav cfg.OutFileName
+        printfn "%s -> %s" inWavFileName cfg.OutFileName
         0
     | _ -> 1

@@ -16,14 +16,25 @@ type State = {
     Delay: int
 }
 
-let makeWalker (accelA, accelB) (speedA, speedB) (posA, posB) (updateEvery: int) =
+type WalkerDef = {
+    MostDelay: int
+    LeastDelay: int
+    AccA: float
+    AccB: float
+    SpeedA: float
+    SpeedB: float
+    UpdateDelay: int
+}
+
+let makeWalker (walkerDef: WalkerDef) =
+    let posA, posB = -walkerDef.MostDelay |> float, -walkerDef.LeastDelay |> float
     let bounce (curr: State) =
         let nextPos = curr.Pos + curr.Speed
         let nextSpeed =
             if nextPos > posB || nextPos < posA then
                 -1. * curr.Speed
             else
-                Math.Clamp(curr.Speed + curr.Acc, speedA, speedB)
+                Math.Clamp(curr.Speed + curr.Acc, walkerDef.SpeedA, walkerDef.SpeedB)
         Math.Clamp(nextPos, posA, posB), nextSpeed
     let midPos = (posA + posB) / 2.
     let shy s =
@@ -44,8 +55,8 @@ let makeWalker (accelA, accelB) (speedA, speedB) (posA, posB) (updateEvery: int)
             if curr.Delay > 0 then
                 curr.Acc, curr.Delay - 1
             else
-                let newAcc = randForRange accelA accelB
-                newAcc, updateEvery
+                let newAcc = randForRange walkerDef.AccA walkerDef.AccB
+                newAcc, walkerDef.UpdateDelay
         let nextState = {
             Acc = nextAccel
             Speed = nextSpeed
@@ -56,9 +67,24 @@ let makeWalker (accelA, accelB) (speedA, speedB) (posA, posB) (updateEvery: int)
     step
 
 let demo nReps =
-    // a is more crazy because of greater acceleration range and shorter update interval
-    let a = makeWalker (-0.4, 0.4) (-5., 5.) (-100., -1.) 10
-    let b = makeWalker (-0.2, 0.2) (-5., 5.) (-100., -1.) 100
+    let a = makeWalker {
+        AccA = -0.4
+        AccB = 0.4
+        SpeedA = -5.
+        SpeedB = 5.
+        MostDelay = 100
+        LeastDelay = 1
+        UpdateDelay = 10
+    }
+    let b = makeWalker {
+        AccA = -0.2
+        AccB = 0.2
+        SpeedA = -5.
+        SpeedB = 5.
+        MostDelay = 100
+        LeastDelay = 1
+        UpdateDelay = 100
+    }
     let initialState = {
         Acc = 0.0
         Speed = 0.0
