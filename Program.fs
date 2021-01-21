@@ -4,6 +4,8 @@
 open MathNet.Numerics.Random
 open MathNet.Numerics.Distributions
 open Newtonsoft.Json
+open BenchmarkDotNet.Attributes
+open BenchmarkDotNet.Running
 open System
 open System.IO
 
@@ -455,12 +457,12 @@ let splitSample (s: int) =
 let replaceSamples (wav: Wav) (newSamples: int []) =
     let takeSamples i nBytes =
         assert (nBytes % 2 = 0)
-        let last = i + 2 * nBytes
+        let bound = i + nBytes / 2
         let sampleBytes =
-            newSamples.[i..last]
+            newSamples.[i..(bound - 1)]
             |> Array.map splitSample
             |> Array.reduce Array.append
-        (last + 1, sampleBytes)
+        (bound, sampleBytes)
     let rec newChunks chunkIdx sampleIdx chunks =
         if chunkIdx = wav.Chunks.Length then
             chunks
@@ -493,12 +495,12 @@ let replaceSamples (wav: Wav) (newSamples: int []) =
         Chunks = (newChunks 0 0 []) |> List.toArray
     }
 
-let clipToInt16 (s: int) =
-    System.Math.Clamp(s, Int16.MinValue |> int, Int16.MaxValue |> int)
+let MinInt16 = Int16.MinValue |> int
+let MaxInt16 = Int16.MaxValue |> int
 
+[<Benchmark>]
 let addNoise wetToDry (wlks: Walkers.Walker []) wav =
     assert (wetToDry >= 0.0 && wetToDry <= 1.0)
-    let sr = sampleRate wav |> int
     let mutable states: Walkers.State [] =
         Array.init wlks.Length (fun _ -> {
             Acc = 0.0
@@ -529,7 +531,7 @@ let addNoise wetToDry (wlks: Walkers.Walker []) wav =
     let newSamples =
         samples
         |> Array.mapi addNoiseFromWalkers
-        |> Array.map clipToInt16
+        |> Array.map (fun x -> System.Math.Clamp(x, MinInt16, MaxInt16))
     replaceSamples wav newSamples
 
 type Config = {
@@ -587,7 +589,6 @@ let main argv =
         let inWav = parseWavFile inWavFileName
         let (start, stop) = findStartStop inWav
         let outWav = addLoop inWav start stop
-        // outWav |> JsonConvert.SerializeObject |> printf "%s"
         writeWavFile outWav outWavFileName
         0
     | [|inWavFileName; "-N"; jsonConfigFileName|] ->
