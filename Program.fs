@@ -9,6 +9,7 @@ open BenchmarkDotNet.Running
 open System
 open System.IO
 
+
 let asciiString (bytes: byte []) =
     System.Text.Encoding.ASCII.GetString bytes
 
@@ -460,8 +461,7 @@ let replaceSamples (wav: Wav) (newSamples: int []) =
         let bound = i + nBytes / 2
         let sampleBytes =
             newSamples.[i..(bound - 1)]
-            |> Array.map splitSample
-            |> Array.reduce Array.append
+            |> Array.collect splitSample
         (bound, sampleBytes)
     let rec newChunks chunkIdx sampleIdx chunks =
         if chunkIdx = wav.Chunks.Length then
@@ -511,7 +511,7 @@ let addNoise wetToDry (wlks: Walkers.Walker []) wav =
     assert (wlks.Length = states.Length)
     let samples =
         extractWavSamples wav
-        |> Array.reduce Array.append
+        |> Array.concat
     let mixDryWet (dry: int) (wet: int) =
         let d = dry |> float
         let w = wet |> float
