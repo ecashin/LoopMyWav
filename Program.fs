@@ -4,8 +4,7 @@
 open MathNet.Numerics.Random
 open MathNet.Numerics.Distributions
 open Newtonsoft.Json
-open BenchmarkDotNet.Attributes
-open BenchmarkDotNet.Running
+open SharpLearning.Optimization
 open System
 open System.IO
 
@@ -498,7 +497,6 @@ let replaceSamples (wav: Wav) (newSamples: int []) =
 let MinInt16 = Int16.MinValue |> int
 let MaxInt16 = Int16.MaxValue |> int
 
-[<Benchmark>]
 let addNoise wetToDry (wlks: Walkers.Walker []) wav =
     assert (wetToDry >= 0.0 && wetToDry <= 1.0)
     let mutable states: Walkers.State [] =
@@ -594,9 +592,27 @@ let main argv =
     | [|inWavFileName; "-N"; jsonConfigFileName|] ->
         let cfg = configFromJsonFile jsonConfigFileName
         let inWav = parseWavFile inWavFileName
-        let outWav =
-            addNoise cfg.WetToDry (cfg.WalkerDefs |> Array.map Walkers.makeWalker) inWav
-        writeWavFile outWav cfg.OutFileName
-        printfn "%s -> %s" inWavFileName cfg.OutFileName
+        let sr = sampleRate inWav
+        let opt = Hyper.makeOpt (Hyper.parameters sr) 10
+        let runAplay () =
+            let p = new System.Diagnostics.Process()
+            p.StartInfo.FileName <- "aplay"
+            p.StartInfo.Arguments <- (cfg.OutFileName)
+            p.StartInfo.RedirectStandardOutput <- false
+            p.StartInfo.UseShellExecute <- false
+            p.Start() |> ignore
+            p.WaitForExit()
+            p.ExitCode
+        let tryParmsOut parms =
+            let walker = Hyper.makeWalkerDef parms |> Walkers.makeWalker
+            let outWav =
+                addNoise cfg.WetToDry [|walker|] inWav
+            writeWavFile outWav cfg.OutFileName
+            printfn "%A" parms
+            if runAplay () <> 0 then
+                failwith "aplay failed"
+            OptimizerResult(parms, Console.ReadLine() |> float)
+        let result = opt.OptimizeBest(Func<float [],OptimizerResult>(tryParmsOut))
+        printfn "result: %A" result
         0
     | _ -> 1
