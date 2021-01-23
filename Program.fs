@@ -1,8 +1,10 @@
 // Thanks to
 // https://sites.google.com/site/musicgapi/technical-documents/wav-file-format#wavefileheader
 // for the format description.
-open MathNet.Numerics.Random
-open MathNet.Numerics.Distributions
+open Eto.Drawing
+open Eto.Forms
+// open MathNet.Numerics.Random
+// open MathNet.Numerics.Distributions
 open Newtonsoft.Json
 open SharpLearning.Optimization
 open System
@@ -542,9 +544,56 @@ let configFromJsonFile fName =
     use f = File.OpenText(fName)
     JsonConvert.DeserializeObject<Config>(f.ReadToEnd())
 
+type Judgement() =
+    let mutable loss = "1.0"
+    member this.Loss
+        with get () = loss
+        and set value = 
+            loss <- value
+            Console.WriteLine(sprintf "Set loss to %A" value)
+
+type JudgeForm() as this =
+    inherit Form()
+    let mutable judgement: float = 1.0
+    do
+        this.Title      <- "LoopMyWav Judger"
+        this.ClientSize <- Size (300, 500)
+        let layout =
+            new TableLayout(
+                Spacing = Size(5, 5),
+                Padding = Padding(10) // https://github.com/picoe/Eto/blob/develop/samples/Tutorials/FSharp/Tutorial4/Program.fs
+            )
+        layout.Rows.Add(
+            TableRow(
+                new Label(Text = "low is good") |> TableCell,
+                this.DataContextBinding() |> TableCell
+            )
+        )
+        this.Content <- layout
+        this.DataContext <- Judgement(Loss = "0.99")
+    member this.DataContextBinding() =
+        let textBox = new TextBox()
+        // bind to the text property using delegates
+        textBox.TextBinding.BindDataContext<_>(
+            Func<Judgement,_>(fun (r) -> r.Loss)
+            , Action<Judgement,_>(fun (r) value -> r.Loss <- value)
+        ) |> ignore
+        // You can also bind using reflection
+        // textBox.TextBinding.BindDataContext<MyObject>(fun r -> r.TextProperty) |> ignore
+        // or, if the data context type is unknown
+        //textBox.TextBinding.BindDataContext(new PropertyBinding<string>("TextProperty"));
+        textBox        
+    
+
 [<EntryPoint>]
 let main argv =
     match argv with
+    | [|"-G"|] ->
+        Eto.Platform.Initialize(Eto.Platforms.WinForms)
+        let app = new Application()
+        let form = new JudgeForm()
+        app.Run(form)
+        0
     | [|"-W"; nReps|] ->
         Walkers.demo (int nReps)
         0

@@ -1,7 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <!-- <TargetFramework>netcoreapp2.2</TargetFramework> -->
+    <!-- eto csproj said:
+    <TargetFramework>netstandard2.0</TargetFramework>
+    -->
+    <!-- eto gtk csproj said:
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net5.0</TargetFramework>
+    -->
     <TargetFramework>netcoreapp5.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
@@ -10,7 +16,9 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.12.1" />
+    <PackageReference Include="Eto.Forms" Version="2.5.10" />
+    <PackageReference Include="Eto.Platform.Gtk" Version="2.5.10" />
+    <PackageReference Include="Eto.Serialization.Xaml" Version="2.5.10" />
     <PackageReference Include="MathNet.Numerics" Version="4.14.0" />
     <PackageReference Include="NewtonSoft.Json" Version="12.0.3" />
     <PackageReference Include="SharpLearning.Optimization" Version="0.31.8" />
