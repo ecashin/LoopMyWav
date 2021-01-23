@@ -1,2 +1,7 @@
 *.wav
 *.WAV
+*.csv
+*.aiff
+*.png
+*~
+*.patch
