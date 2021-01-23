@@ -5,3 +5,6 @@
 *.png
 *~
 *.patch
+
+.fake
+.ionide
