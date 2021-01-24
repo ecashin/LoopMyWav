@@ -8,3 +8,6 @@
 
 .fake
 .ionide
+bin/
+.vscode/
+obj/

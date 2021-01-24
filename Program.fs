@@ -544,46 +544,30 @@ let configFromJsonFile fName =
     use f = File.OpenText(fName)
     JsonConvert.DeserializeObject<Config>(f.ReadToEnd())
 
-type Judgement() =
-    let mutable loss = "1.0"
-    member this.Loss
-        with get () = loss
-        and set value = 
-            loss <- value
-            Console.WriteLine(sprintf "Set loss to %A" value)
-
 type JudgeForm() as this =
     inherit Form()
-    let mutable judgement: float = 1.0
+    let mutable loss: float = 1.0
     do
         this.Title      <- "LoopMyWav Judger"
         this.ClientSize <- Size (300, 500)
         let layout =
             new TableLayout(
                 Spacing = Size(5, 5),
-                Padding = Padding(10) // https://github.com/picoe/Eto/blob/develop/samples/Tutorials/FSharp/Tutorial4/Program.fs
+                Padding = Padding(10)
             )
-        layout.Rows.Add(
-            TableRow(
-                new Label(Text = "low is good") |> TableCell,
-                this.DataContextBinding() |> TableCell
+        let label = new Label(Text = "low is good")
+        label.MouseDown.AddHandler(
+            (fun sender event ->
+                let y = event.Location.Y |> float
+                let label = sender :?> Label
+                let height = label.Height |> float
+                let newLoss = Math.Clamp((height - y) / height, 0.0, 1.0)
+                printfn "sender:%A y:%f height:%f newLoss:%f" label y height newLoss
+                loss <- newLoss
             )
         )
+        layout.Rows.Add(TableRow(label |> TableCell))
         this.Content <- layout
-        this.DataContext <- Judgement(Loss = "0.99")
-    member this.DataContextBinding() =
-        let textBox = new TextBox()
-        // bind to the text property using delegates
-        textBox.TextBinding.BindDataContext<_>(
-            Func<Judgement,_>(fun (r) -> r.Loss)
-            , Action<Judgement,_>(fun (r) value -> r.Loss <- value)
-        ) |> ignore
-        // You can also bind using reflection
-        // textBox.TextBinding.BindDataContext<MyObject>(fun r -> r.TextProperty) |> ignore
-        // or, if the data context type is unknown
-        //textBox.TextBinding.BindDataContext(new PropertyBinding<string>("TextProperty"));
-        textBox        
-    
 
 [<EntryPoint>]
 let main argv =
