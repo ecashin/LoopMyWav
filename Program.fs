@@ -626,7 +626,8 @@ let main argv =
         let cfg = configFromJsonFile jsonConfigFileName
         let inWav = parseWavFile inWavFileName
         let sr = sampleRate inWav
-        let opt = Hyper.makeOpt (Hyper.parameters sr) 10
+        let iters = 2
+        let opt = Hyper.makeOpt (Hyper.parameters sr) iters
         let runAplay () =
             let p = new System.Diagnostics.Process()
             p.StartInfo.FileName <- "aplay"
@@ -634,8 +635,13 @@ let main argv =
             p.StartInfo.RedirectStandardOutput <- false
             p.StartInfo.UseShellExecute <- false
             p.Start() |> ignore
-            p.WaitForExit()
-            p.ExitCode
+            Threading.Thread.Sleep(2000)
+            p.Kill()
+            try
+                p.WaitForExit()
+            with
+                | _ -> ()
+            0 // p.ExitCode
         let tryParmsOut parms =
             let walker = Hyper.makeWalkerDef parms |> Walkers.makeWalker
             let outWav =
