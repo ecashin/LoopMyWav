@@ -59,5 +59,9 @@ Required libraries are installed
 when the software is run
 in place using the usage patterns above.
 
+Audio playback in the `noise` branch
+requires `aplay`,
+the Linux ALSA-based player.
+
 The `jq` tool is nice for JSON output
 but is not required.
