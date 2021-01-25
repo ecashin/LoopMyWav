@@ -544,13 +544,14 @@ let configFromJsonFile fName =
     use f = File.OpenText(fName)
     JsonConvert.DeserializeObject<Config>(f.ReadToEnd())
 
+// These were very nice: parms:[|891.0; 1.140829218; 0.02645302773; 14741.0|]
 type JudgeForm(cfg, inWav) as this =
     inherit Form()
     let mutable loss: float = 1.0
     let mutable parms: float [] = Array.zeroCreate 0
     let player = new System.Diagnostics.Process()
     let mutable waitingForHuman = false
-    let iters = 10
+    let iters = 100
     let opt = Hyper.makeOpt (Hyper.parameters (sampleRate inWav)) iters
     let stopPlayer () =
         try

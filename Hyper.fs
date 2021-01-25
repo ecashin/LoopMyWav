@@ -1,7 +1,7 @@
 module Hyper
 
 open SharpLearning.Optimization
-
+open System
 
 let parameters (sampleRate: uint32) : IParameterSpec [] =
     let sr = sampleRate |> float
@@ -9,7 +9,7 @@ let parameters (sampleRate: uint32) : IParameterSpec [] =
         // max delay
         MinMaxParameterSpec(
             1.0,
-            (sr * 0.5),
+            Math.Round(sr * 0.05),
             Transform.Linear,
             ParameterType.Discrete
         );
@@ -17,21 +17,21 @@ let parameters (sampleRate: uint32) : IParameterSpec [] =
         // max abs acceleration
         MinMaxParameterSpec(
             0.001,
-            sr / 1000.0,
+            sr / 40000.0,
             Transform.Linear,
             ParameterType.Continuous
         );
         // max abs speed
         MinMaxParameterSpec(
             0.001,
-            sr / 1000.0,
+            sr / 40000.0,
             Transform.Linear,
             ParameterType.Continuous
         );
         // update delay
         MinMaxParameterSpec(
             1.0,
-            sr * 1.0,
+            sr * 0.25,
             Transform.Linear,
             ParameterType.Discrete
         )
