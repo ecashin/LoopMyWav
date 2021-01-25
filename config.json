@@ -1,5 +1,5 @@
 {
-    "WetToDry": 0.99,
+    "WetToDry": 0.5,
     "OutFileName": "out.wav",
     "WalkerDefs": [
 	{
