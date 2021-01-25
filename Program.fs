@@ -315,7 +315,7 @@ let findStartStop wav =
     let samples =
         wav
         |> extractWavSamples
-        |> Array.reduce Array.append
+        |> Array.concat
     let winSize = (sampleRate wav) / 1000ul |> int
     let windows =
         samples.[0..(samples.Length - 1 - winSize)]
