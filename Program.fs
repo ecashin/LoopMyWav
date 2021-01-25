@@ -544,10 +544,44 @@ let configFromJsonFile fName =
     use f = File.OpenText(fName)
     JsonConvert.DeserializeObject<Config>(f.ReadToEnd())
 
-type JudgeForm() as this =
+type JudgeForm(cfg, inWav) as this =
     inherit Form()
     let mutable loss: float = 1.0
+    let mutable parms: float [] = Array.zeroCreate 0
+    let player = new System.Diagnostics.Process()
+    let mutable waitingForHuman = false
+    let iters = 10
+    let opt = Hyper.makeOpt (Hyper.parameters (sampleRate inWav)) iters
+    let stopPlayer () =
+        try
+            player.Kill()
+            player.WaitForExit()
+        with
+            | _ -> ()
+    let doOneExperiment trialParms =
+        parms <- trialParms
+        let walker = Hyper.makeWalkerDef trialParms |> Walkers.makeWalker
+        printfn "Adding noise with walker %A" walker
+        let outWav =
+            addNoise cfg.WetToDry [|walker|] inWav
+        printfn "Writing %s" cfg.OutFileName
+        writeWavFile outWav cfg.OutFileName
+        player.Start() |> ignore
+        waitingForHuman <- true
+        printfn "Playing %s" cfg.OutFileName
+        while waitingForHuman do
+            Threading.Thread.Sleep(200)
+        printfn "Stopped waiting"
+        OptimizerResult(parms, loss)
+    let optimize () =
+        let result = opt.OptimizeBest(Func<float [],OptimizerResult>(doOneExperiment))
+        printfn "result: %A" result
     do
+        player.StartInfo.FileName <- "aplay"
+        player.StartInfo.Arguments <- cfg.OutFileName
+        player.StartInfo.RedirectStandardOutput <- false
+        player.StartInfo.UseShellExecute <- false
+
         this.Title      <- "LoopMyWav Judger"
         this.ClientSize <- Size (300, 500)
         let layout =
@@ -558,26 +592,27 @@ type JudgeForm() as this =
         let label = new Label(Text = "low is good")
         label.MouseDown.AddHandler(
             (fun sender event ->
+                assert waitingForHuman
+                stopPlayer ()
                 let y = event.Location.Y |> float
                 let label = sender :?> Label
                 let height = label.Height |> float
                 let newLoss = Math.Clamp((height - y) / height, 0.0, 1.0)
                 printfn "sender:%A y:%f height:%f newLoss:%f" label y height newLoss
                 loss <- newLoss
+                printfn "parms:%A" parms
+                waitingForHuman <- false
             )
         )
         layout.Rows.Add(TableRow(label |> TableCell))
         this.Content <- layout
+        async {
+            optimize ()
+        } |> Async.StartAsTask |> ignore
 
 [<EntryPoint>]
 let main argv =
     match argv with
-    | [|"-G"|] ->
-        Eto.Platform.Initialize(Eto.Platforms.WinForms)
-        let app = new Application()
-        let form = new JudgeForm()
-        app.Run(form)
-        0
     | [|"-W"; nReps|] ->
         Walkers.demo (int nReps)
         0
@@ -625,33 +660,9 @@ let main argv =
     | [|inWavFileName; "-N"; jsonConfigFileName|] ->
         let cfg = configFromJsonFile jsonConfigFileName
         let inWav = parseWavFile inWavFileName
-        let sr = sampleRate inWav
-        let iters = 2
-        let opt = Hyper.makeOpt (Hyper.parameters sr) iters
-        let runAplay () =
-            let p = new System.Diagnostics.Process()
-            p.StartInfo.FileName <- "aplay"
-            p.StartInfo.Arguments <- (cfg.OutFileName)
-            p.StartInfo.RedirectStandardOutput <- false
-            p.StartInfo.UseShellExecute <- false
-            p.Start() |> ignore
-            Threading.Thread.Sleep(2000)
-            p.Kill()
-            try
-                p.WaitForExit()
-            with
-                | _ -> ()
-            0 // p.ExitCode
-        let tryParmsOut parms =
-            let walker = Hyper.makeWalkerDef parms |> Walkers.makeWalker
-            let outWav =
-                addNoise cfg.WetToDry [|walker|] inWav
-            writeWavFile outWav cfg.OutFileName
-            printfn "%A" parms
-            if runAplay () <> 0 then
-                failwith "aplay failed"
-            OptimizerResult(parms, Console.ReadLine() |> float)
-        let result = opt.OptimizeBest(Func<float [],OptimizerResult>(tryParmsOut))
-        printfn "result: %A" result
+        Eto.Platform.Initialize(Eto.Platforms.WinForms)
+        let app = new Application()
+        let form = new JudgeForm(cfg, inWav)
+        app.Run(form)
         0
     | _ -> 1

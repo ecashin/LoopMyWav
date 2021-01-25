@@ -9,7 +9,7 @@ let parameters (sampleRate: uint32) : IParameterSpec [] =
         // max delay
         MinMaxParameterSpec(
             1.0,
-            (sr * 3.0),
+            (sr * 0.5),
             Transform.Linear,
             ParameterType.Discrete
         );
@@ -31,7 +31,7 @@ let parameters (sampleRate: uint32) : IParameterSpec [] =
         // update delay
         MinMaxParameterSpec(
             1.0,
-            sr * 5.0,
+            sr * 1.0,
             Transform.Linear,
             ParameterType.Discrete
         )
