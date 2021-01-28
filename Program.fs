@@ -494,6 +494,29 @@ let splitSample (s: int) =
     let short = s |> uint16
     [|short &&& 0xffus |> byte; short >>> 8 |> byte|]
 
+let wavForSamples (inWav: Wav) (samples: int [] []) =
+    let fmtId = "fmt " |> asciiBytes
+    let dataChunk = {
+        ChunkHeader = {
+            ChunkId = "data" |> asciiBytes
+            ChunkDataSize = samples.Length * samples.[0].Length * 2 |> uint32
+        }
+        Data = DataChunk {
+            SampleData =
+                samples
+                |> Array.concat
+                |> Array.collect splitSample
+        }
+    }
+    let formatChunk =
+        inWav.Chunks
+        |> Array.filter (fun c -> c.ChunkHeader.ChunkId = fmtId)
+        |> Array.head
+    {
+        Header = inWav.Header   // Size in this is fixed up by wav writer function
+        Chunks = [|formatChunk; dataChunk|]
+    }
+
 let replaceSamples (wav: Wav) (newSamples: int [] []) =
     let takeSamples i nBytes =
         assert (nBytes % 2 = 0)
@@ -679,7 +702,7 @@ let main argv =
             Grain.granulate makeGrain (int nGrains) samples
             |> Seq.take (sr * (nSeconds |> int))
             |> Seq.toArray
-        writeWavFile (replaceSamples wav granular) outFileName
+        writeWavFile (wavForSamples wav granular) outFileName
         0
     | [|"-W"; nReps|] ->
         Walkers.demo (int nReps)
