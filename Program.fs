@@ -3,7 +3,7 @@
 // for the format description.
 open Eto.Drawing
 open Eto.Forms
-open MathNet.Numerics.Random
+// open MathNet.Numerics.Random
 // open MathNet.Numerics.Distributions
 open Newtonsoft.Json
 open SharpLearning.Optimization
@@ -84,6 +84,7 @@ let readChunkHeader (rd: BinaryReader) =
 
 let writeChunkHeader (wr: BinaryWriter) (hdr: ChunkHeader) =
     wr.Write(hdr.ChunkId)
+    assert (hdr.ChunkDataSize % 2u = 0u)
     wr.Write(hdr.ChunkDataSize)
 
 type WavHeader = {
@@ -138,6 +139,7 @@ let writeFormatChunkData (wr: BinaryWriter) (f: FormatChunk) =
     wr.Write(f.SigBitsPerSample)
 
 let writeDataChunkData (wr: BinaryWriter) (d: DataChunk) =
+    assert (d.SampleData.Length % 2 = 0)
     wr.Write(d.SampleData)
 
 let rec readSampleLoops (rd: BinaryReader) (n: uint32) =
@@ -201,6 +203,7 @@ let writeSamplerChunkData (wr: BinaryWriter) (s: SamplerChunk) =
     wr.Write(s.NumSampleLoops)
     wr.Write(s.SamplerDataSize)
     writeSampleLoops wr s.SampleLoops
+    assert (s.SamplerData.Length % 2 = 0)
     wr.Write(s.SamplerData)
 
 let readChunkData (rd: BinaryReader) (hdr: ChunkHeader) =
@@ -243,7 +246,14 @@ let parseWavFile (wavFileName: string) =
     }
 
 let calculateChunkSize (chunk: Chunk) =
-    chunk.ChunkHeader.ChunkDataSize + 8u  // add eight-byte header size
+    let siz = chunk.ChunkHeader.ChunkDataSize
+    let aligned =
+        if siz % 2u = 1u then
+            eprintfn "Aligning chunk of size %u" siz
+            siz + 1u
+        else
+            siz
+    aligned + 8u  // add eight-byte header size
 
 let calculateWavSize (wav: Wav) =
     let size =
@@ -624,8 +634,8 @@ type JudgeForm(cfg, inWav) as this =
         let result = opt.OptimizeBest(Func<float [],OptimizerResult>(doOneExperiment))
         printfn "result: %A" result
     do
-        player.StartInfo.FileName <- "aplay"
-        player.StartInfo.Arguments <- cfg.OutFileName
+        player.StartInfo.FileName <- "mpv"
+        player.StartInfo.Arguments <- sprintf "--ao=jack %s" cfg.OutFileName
         player.StartInfo.RedirectStandardOutput <- false
         player.StartInfo.UseShellExecute <- false
 
