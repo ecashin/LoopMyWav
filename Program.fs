@@ -3,7 +3,7 @@
 // for the format description.
 open Eto.Drawing
 open Eto.Forms
-// open MathNet.Numerics.Random
+open MathNet.Numerics.Random
 // open MathNet.Numerics.Distributions
 open Newtonsoft.Json
 open SharpLearning.Optimization
@@ -117,7 +117,7 @@ let readFormatChunk (rd: BinaryReader) =
     let sr = rd.ReadUInt32()
     let bps = rd.ReadUInt32()
     let blockAlign = rd.ReadUInt16()
-    assert (blockAlign = 2us)
+    assert (blockAlign = (noChans * 2us))
     let sigBits = rd.ReadUInt16()
     assert (sigBits = 16us)
     {
@@ -660,6 +660,17 @@ type JudgeForm(cfg, inWav) as this =
 [<EntryPoint>]
 let main argv =
     match argv with
+    | [| wavFileName; "--grains"; nGrains; "--seconds"; nSeconds; outFileName |] ->
+        let wav = parseWavFile wavFileName
+        let sr = sampleRate wav |> int
+        let samples = extractWavSamples wav
+        let makeGrain = Grain.makeGrainMaker (sr / 10) (sr / 2) samples
+        let granular =
+            Grain.granulate makeGrain (int nGrains) samples
+            |> Seq.take (sr * (nSeconds |> int))
+            |> Seq.toArray
+        writeWavFile (replaceSamples wav granular) outFileName
+        0
     | [|"-W"; nReps|] ->
         Walkers.demo (int nReps)
         0

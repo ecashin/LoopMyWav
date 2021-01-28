@@ -13,6 +13,7 @@
   <ItemGroup>
     <Compile Include="Walkers.fs" />
     <Compile Include="Hyper.fs" />
+    <Compile Include="Grain.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
