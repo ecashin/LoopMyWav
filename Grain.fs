@@ -54,6 +54,20 @@ let advanceGrain env makeGrain (g: Grain) (source: int [] []): (int [] * Grain) 
             g with Pos = g.Pos + 1
         }
 
+let Int16Scale = (int Int16.MaxValue) - (int Int16.MinValue) |> float
+
+// https://ccrma.stanford.edu/~jos/pasp/Soft_Clipping.html
+let softClip smpl =
+    let s = (float smpl) / Int16Scale
+    let clipped =
+        if s < -1.0 then
+            -(2.0 / 3.0)
+        else if s > 1.0 then
+            2.0 / 3.0
+        else
+            s - (s * s * s) / 3.0
+    clipped * Int16Scale
+
 let advanceGrains env makeGrain (grains: Grain []) (source: int [] []): (int [] * Grain []) =
     let samplesAndNextGrains =
         grains
@@ -68,9 +82,7 @@ let advanceGrains env makeGrain (grains: Grain []) (source: int [] []): (int [] 
             acc
             |> Array.mapi (fun i s -> s + next.[i])
         ) zero
-        |> Array.map (fun chan ->
-            Math.Round((float chan) / (float grains.Length)) |> int
-        )
+        |> Array.map (softClip >> Math.Round >> int)
     let nextGrains =
         samplesAndNextGrains
         |> Array.map snd
