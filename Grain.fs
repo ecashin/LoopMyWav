@@ -66,7 +66,7 @@ let softClip smpl =
             2.0 / 3.0
         else
             s - (s * s * s) / 3.0
-    clipped * Int16Scale
+    clipped * Int16Scale * 0.8
 
 let advanceGrains env makeGrain (grains: Grain []) (source: int [] []): (int [] * Grain []) =
     let samplesAndNextGrains =
