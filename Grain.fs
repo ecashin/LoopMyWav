@@ -2,6 +2,7 @@ module Grain
 
 open System
 
+open MathNet.Numerics
 open MathNet.Numerics.Random
 
 type Grain = {
@@ -10,10 +11,18 @@ type Grain = {
     Pos: int
 }
 
-let env (g: Grain) =
-    let fourth = (g.Bound - g.Start) / 4 |> float
-    let ramp = min (g.Pos - g.Start) (g.Bound - g.Pos) |> float
-    Math.Clamp(ramp, 0.0, fourth) / fourth
+let makeEnv maxLen =
+    let win = Window.Tukey(maxLen)
+    let env (g: Grain) =
+        let grainPos = g.Pos - g.Start
+        let grainLen = g.Bound - g.Start
+        let midGrainPos = grainLen / 2
+        let nRemaining = grainLen - grainPos
+        if grainPos < midGrainPos then
+            win.[grainPos]
+        else
+            win.[maxLen - nRemaining]
+    env
 
 let makeGrainMaker minLen maxLen (source: int [] []) =
     let rng = SystemRandomSource.Default
@@ -31,7 +40,7 @@ let makeGrainMaker minLen maxLen (source: int [] []) =
             Pos = start
         }
 
-let advanceGrain makeGrain (g: Grain) (source: int [] []): (int [] * Grain) =
+let advanceGrain env makeGrain (g: Grain) (source: int [] []): (int [] * Grain) =
     let sample =
         source.[g.Pos]
         |> Array.map (fun chan ->
@@ -45,10 +54,10 @@ let advanceGrain makeGrain (g: Grain) (source: int [] []): (int [] * Grain) =
             g with Pos = g.Pos + 1
         }
 
-let advanceGrains makeGrain (grains: Grain []) (source: int [] []): (int [] * Grain []) =
+let advanceGrains env makeGrain (grains: Grain []) (source: int [] []): (int [] * Grain []) =
     let samplesAndNextGrains =
         grains
-        |> Array.map (fun g -> advanceGrain makeGrain g source)
+        |> Array.map (fun g -> advanceGrain env makeGrain g source)
     let samples =
         samplesAndNextGrains
         |> Array.map fst
@@ -67,9 +76,9 @@ let advanceGrains makeGrain (grains: Grain []) (source: int [] []): (int [] * Gr
         |> Array.map snd
     mix, nextGrains
 
-let granulate (makeGrain: unit -> Grain) (nGrains: int) (source: int [] []) =
+let granulate (env: Grain -> float) (makeGrain: unit -> Grain) (nGrains: int) (source: int [] []) =
     let grains = Array.init nGrains (fun _ -> makeGrain ())
     let gen currGrains =
-        let sample, nextGrains = advanceGrains makeGrain currGrains source
+        let sample, nextGrains = advanceGrains env makeGrain currGrains source
         Some(sample, nextGrains)
     Seq.unfold gen grains

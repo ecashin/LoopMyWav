@@ -697,9 +697,12 @@ let main argv =
         let wav = parseWavFile wavFileName
         let sr = sampleRate wav |> int
         let samples = extractWavSamples wav
-        let makeGrain = Grain.makeGrainMaker (sr / 10) (sr / 2) samples
+        let minGrainLen = sr / 10
+        let maxGrainLen = sr / 2
+        let makeGrain = Grain.makeGrainMaker minGrainLen maxGrainLen samples
+        let env = Grain.makeEnv maxGrainLen
         let granular =
-            Grain.granulate makeGrain (int nGrains) samples
+            Grain.granulate env makeGrain (int nGrains) samples
             |> Seq.take (sr * (nSeconds |> int))
             |> Seq.toArray
         writeWavFile (wavForSamples wav granular) outFileName
