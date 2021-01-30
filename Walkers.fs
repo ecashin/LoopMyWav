@@ -66,7 +66,7 @@ let makeWalker (walkerDef: WalkerDef) =
         shy nextState
     step
 
-let demo nReps =
+let demo nSteps =
     let a = makeWalker {
         AccA = -0.4
         AccB = 0.4
@@ -99,6 +99,6 @@ let demo nReps =
             printfn "a,%d,%f,%f,%f" curr aState.Acc aState.Speed aState.Pos
             printfn "b,%d,%f,%f,%f" curr bState.Acc bState.Speed bState.Pos
             repeat (a aState) (b bState) (curr + 1) n
-    repeat initialState initialState 1 nReps
+    repeat initialState initialState 1 nSteps
 
 type Walker = State -> State

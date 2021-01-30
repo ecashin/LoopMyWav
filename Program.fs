@@ -693,53 +693,38 @@ type JudgeForm(cfg, inWav) as this =
 
 [<EntryPoint>]
 let main argv =
-    let args = parse argv
-    let gArgs = args.GetResult Granular
-    let wavs =
-        (gArgs.GetResult In_WavFiles)
-        |> List.toArray
-        |> Array.map parseWavFile
-    let sampleRates =
-        wavs
-        |> Array.map (sampleRate >> int)
-    let wavSamples =
-        wavs
-        |> Array.map extractWavSamples
-    let maxGrainLen sr = sr / 2
-    let minGrainLen sr = sr / 10
-    let grainMakers =
-        Array.zip sampleRates wavSamples
-        |> Array.map (fun (sr, samples) ->
-            Grain.makeGrainMaker (minGrainLen sr) (maxGrainLen sr) samples
-        )
-    let envs =
-        sampleRates
-        |> Array.map (maxGrainLen >> Grain.makeEnv)
-    let gSamples =
-        Grain.granulate sampleRates.[0] envs grainMakers (gArgs.GetResult N_Grains) wavSamples
-        |> Seq.take ((Array.head sampleRates) * (gArgs.GetResult N_Seconds))
-        |> Seq.toArray
-    writeWavFile (wavForSamples (Array.head wavs) gSamples) (gArgs.GetResult Out_WavFile)
+    let args = (parse argv).GetAllResults()
+    match args.[0] with
+    | Granular(gArgs) ->
+        let wavs =
+            (gArgs.GetResult In_WavFiles)
+            |> List.toArray
+            |> Array.map parseWavFile
+        let sampleRates =
+            wavs
+            |> Array.map (sampleRate >> int)
+        let wavSamples =
+            wavs
+            |> Array.map extractWavSamples
+        let maxGrainLen sr = sr / 2
+        let minGrainLen sr = sr / 10
+        let grainMakers =
+            Array.zip sampleRates wavSamples
+            |> Array.map (fun (sr, samples) ->
+                Grain.makeGrainMaker (minGrainLen sr) (maxGrainLen sr) samples
+            )
+        let envs =
+            sampleRates
+            |> Array.map (maxGrainLen >> Grain.makeEnv)
+        let gSamples =
+            Grain.granulate sampleRates.[0] envs grainMakers (gArgs.GetResult N_Grains) wavSamples
+            |> Seq.take ((Array.head sampleRates) * (gArgs.GetResult N_Seconds))
+            |> Seq.toArray
+        writeWavFile (wavForSamples (Array.head wavs) gSamples) (gArgs.GetResult Out_WavFile)
+    | Walker_Demo(wArgs) ->
+        Walkers.demo (wArgs.GetResult N_Steps)
     0
     (*
-    match argv with
-    | [| wavFileName; "--grains"; nGrains; "--seconds"; nSeconds; outFileName |] ->
-        let wav = parseWavFile wavFileName
-        let sr = sampleRate wav |> int
-        let samples = extractWavSamples wav
-        let minGrainLen = sr / 10
-        let maxGrainLen = sr / 2
-        let makeGrain = Grain.makeGrainMaker minGrainLen maxGrainLen samples
-        let env = Grain.makeEnv maxGrainLen
-        let granular =
-            Grain.granulate env makeGrain (int nGrains) samples
-            |> Seq.take (sr * (nSeconds |> int))
-            |> Seq.toArray
-        writeWavFile (wavForSamples wav granular) outFileName
-        0
-    | [|"-W"; nReps|] ->
-        Walkers.demo (int nReps)
-        0
     | [|wavFileName; "-j"|] ->
         let wav = parseWavFile wavFileName
         wav |> JsonConvert.SerializeObject |> printf "%s"
