@@ -1,6 +1,7 @@
 // Thanks to
 // https://sites.google.com/site/musicgapi/technical-documents/wav-file-format#wavefileheader
 // for the format description.
+open Argu
 open Eto.Drawing
 open Eto.Forms
 // open MathNet.Numerics.Random
@@ -690,8 +691,59 @@ type JudgeForm(cfg, inWav) as this =
             optimize ()
         } |> Async.StartAsTask |> ignore
 
+[<CliPrefix(CliPrefix.DoubleDash)>]
+type GranularArgs =
+    | N_Grains of nGrains:int
+    | N_Seconds of nSeconds:int
+    | Out_WavFile of outWavFileName:string
+    | In_WavFiles of inWavFileName:string list
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | N_Grains _ -> "Number of grains to use"
+            | N_Seconds _ -> "Number of seconds for output WAV"
+            | In_WavFiles _ -> "The sources from which to draw grains"
+            | Out_WavFile _ -> "The name of the WAV file to create for output"
+and LoopMyWavArgs =
+    | [<CliPrefix(CliPrefix.None)>] Granular of ParseResults<GranularArgs>
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Granular _ -> "Play grains from input files"
 [<EntryPoint>]
 let main argv =
+    let errorHandler = ProcessExiter(colorizer = function ErrorCode.HelpText -> None | _ -> Some ConsoleColor.Red)
+    let parser = ArgumentParser.Create<LoopMyWavArgs>(programName = "LoopMyWav", errorHandler = errorHandler)
+    let results = parser.ParseCommandLine argv
+    printfn "Got parse results %A" <| results.GetAllResults()
+    let gArgs = results.GetResult Granular
+    let wavs =
+        (gArgs.GetResult In_WavFiles)
+        |> List.toArray
+        |> Array.map parseWavFile
+    let sampleRates =
+        wavs
+        |> Array.map (sampleRate >> int)
+    let wavSamples =
+        wavs
+        |> Array.map extractWavSamples
+    let maxGrainLen sr = sr / 2
+    let minGrainLen sr = sr / 10
+    let grainMakers =
+        Array.zip sampleRates wavSamples
+        |> Array.map (fun (sr, samples) ->
+            Grain.makeGrainMaker (minGrainLen sr) (maxGrainLen sr) samples
+        )
+    let envs =
+        sampleRates
+        |> Array.map (maxGrainLen >> Grain.makeEnv)
+    let gSamples =
+        Grain.granulate envs grainMakers (gArgs.GetResult N_Grains) wavSamples
+        |> Seq.take ((Array.head sampleRates) * (gArgs.GetResult N_Seconds))
+        |> Seq.toArray
+    writeWavFile (wavForSamples (Array.head wavs) gSamples) (gArgs.GetResult Out_WavFile)
+    0
+    (*
     match argv with
     | [| wavFileName; "--grains"; nGrains; "--seconds"; nSeconds; outFileName |] ->
         let wav = parseWavFile wavFileName
@@ -760,3 +812,4 @@ let main argv =
         app.Run(form)
         0
     | _ -> 1
+    *)

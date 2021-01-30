@@ -68,29 +68,42 @@ let softClip smpl =
             s - (s * s * s) / 3.0
     clipped * Int16Scale * 0.8
 
+let mix (samples: int [] []) =
+    samples.[1..]
+    |> Array.fold (fun (acc: int []) (next: int []) ->
+        let safeNext =
+            if acc.Length <> next.Length then
+                eprintfn "acc.Length:%d next.Length:%d" acc.Length next.Length
+                eprintfn "samples:%A" samples
+                Array.zeroCreate<int> acc.Length
+            else
+                next
+        acc
+        |> Array.mapi (fun i s -> s + safeNext.[i])
+    ) samples.[0]
+    |> Array.map (softClip >> Math.Round >> int)
+
 let advanceGrains env makeGrain (grains: Grain []) (source: int [] []): (int [] * Grain []) =
-    let samplesAndNextGrains =
+    let samples, nextGrains =
         grains
         |> Array.map (fun g -> advanceGrain env makeGrain g source)
-    let samples =
-        samplesAndNextGrains
-        |> Array.map fst
-    let zero = Array.zeroCreate<int> source.[0].Length
-    let mix =
-        samples
-        |> Array.fold (fun (acc: int []) (next: int []) ->
-            acc
-            |> Array.mapi (fun i s -> s + next.[i])
-        ) zero
-        |> Array.map (softClip >> Math.Round >> int)
-    let nextGrains =
-        samplesAndNextGrains
-        |> Array.map snd
-    mix, nextGrains
+        |> Array.unzip
+    mix samples, nextGrains
 
-let granulate (env: Grain -> float) (makeGrain: unit -> Grain) (nGrains: int) (source: int [] []) =
-    let grains = Array.init nGrains (fun _ -> makeGrain ())
-    let gen currGrains =
-        let sample, nextGrains = advanceGrains env makeGrain currGrains source
-        Some(sample, nextGrains)
-    Seq.unfold gen grains
+type Envs = (Grain -> float) []
+type GrainMakers = (unit -> Grain) []
+type Sources = int [] [] []  // .[source].[time].[channel]
+
+let granulate (envs: Envs) (grainMakers: GrainMakers) (nGrains: int) (sources: Sources) =
+    let grainsPerSource =
+        grainMakers
+        |> Array.map (fun makeGrain -> Array.init nGrains (fun _ -> makeGrain ()))
+    let gen currGrainsPerSource =
+        let samples, nextGrainsPerSource =
+            currGrainsPerSource
+            |> Array.mapi (fun i currGrains ->
+                advanceGrains envs.[i] grainMakers.[i] currGrains sources.[i]
+            )
+            |> Array.unzip
+        Some(mix samples, nextGrainsPerSource)
+    Seq.unfold gen grainsPerSource
