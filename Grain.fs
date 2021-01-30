@@ -68,7 +68,7 @@ let softClip smpl =
             s - (s * s * s) / 3.0
     clipped * Int16Scale * 0.8
 
-let mix (samples: int [] []) =
+let mix (samples: int [] []) (weights: option<float []>) =
     samples.[1..]
     |> Array.fold (fun (acc: int []) (next: int []) ->
         let safeNext =
@@ -88,22 +88,73 @@ let advanceGrains env makeGrain (grains: Grain []) (source: int [] []): (int [] 
         grains
         |> Array.map (fun g -> advanceGrain env makeGrain g source)
         |> Array.unzip
-    mix samples, nextGrains
+    mix samples None, nextGrains
 
 type Envs = (Grain -> float) []
 type GrainMakers = (unit -> Grain) []
 type Sources = int [] [] []  // .[source].[time].[channel]
 
-let granulate (envs: Envs) (grainMakers: GrainMakers) (nGrains: int) (sources: Sources) =
+type ExpiringTarget = {
+    Target: float []
+    TTL: int
+}
+
+let makeExpiringTarget nWeights minTTL maxTTL =
+    let rng = SystemRandomSource.Default
+    let weights = Array.init nWeights (fun _ -> rng.NextDouble())
+    let rint (x: float) = (Math.Round(x)) |> int
+    let ttl = minTTL + rint ((rng.NextDouble()) * (maxTTL - minTTL |> double))
+    let sumWeights = weights |> Array.sum
+    {
+        Target = weights |> Array.map (fun x -> x / sumWeights)
+        TTL = ttl
+    }
+
+let nextExpiringtarget (e: ExpiringTarget) minTTL maxTTL =
+    if e.TTL = 0 then
+        makeExpiringTarget e.Target.Length minTTL maxTTL
+    else
+        { e with TTL = e.TTL - 1 }
+
+type SourceMix = {
+    CurrWeights: float []
+    ExpiringTarget: ExpiringTarget
+}
+
+let nextSourceMix minTTL maxTTL currSourceMix =
+    let nextTarget = nextExpiringtarget currSourceMix.ExpiringTarget minTTL maxTTL
+    let inertia =
+        currSourceMix.CurrWeights
+        |> Array.map (fun x -> x * 0.9)
+    let pull =
+        currSourceMix.ExpiringTarget.Target
+        |> Array.map (fun x -> x * 0.1)
+    {
+        CurrWeights = Array.init pull.Length (fun i -> inertia.[i] + pull.[i])
+        ExpiringTarget = nextTarget
+    }
+
+let makeSourceMix nSources minTTL maxTTL =
+    {
+        CurrWeights = Array.zeroCreate nSources
+        ExpiringTarget = makeExpiringTarget nSources minTTL maxTTL
+    }
+
+let granulate (sr: int) (envs: Envs) (grainMakers: GrainMakers) (nGrains: int) (sources: Sources) =
     let grainsPerSource =
         grainMakers
         |> Array.map (fun makeGrain -> Array.init nGrains (fun _ -> makeGrain ()))
-    let gen currGrainsPerSource =
+    let minTTL = sr  // / 10
+    let maxTTL = sr * 5
+    let sourceMix = makeSourceMix sources.Length minTTL maxTTL
+    let nextSrcMix = nextSourceMix minTTL maxTTL
+    let gen (currGrainsPerSource, currSourceMix) =
         let samples, nextGrainsPerSource =
             currGrainsPerSource
             |> Array.mapi (fun i currGrains ->
                 advanceGrains envs.[i] grainMakers.[i] currGrains sources.[i]
             )
             |> Array.unzip
-        Some(mix samples, nextGrainsPerSource)
-    Seq.unfold gen grainsPerSource
+        let sample = mix samples (Some(currSourceMix.CurrWeights))
+        Some(sample, (nextGrainsPerSource, nextSrcMix currSourceMix))
+    Seq.unfold gen (grainsPerSource, sourceMix)

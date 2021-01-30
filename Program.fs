@@ -738,7 +738,7 @@ let main argv =
         sampleRates
         |> Array.map (maxGrainLen >> Grain.makeEnv)
     let gSamples =
-        Grain.granulate envs grainMakers (gArgs.GetResult N_Grains) wavSamples
+        Grain.granulate sampleRates.[0] envs grainMakers (gArgs.GetResult N_Grains) wavSamples
         |> Seq.take ((Array.head sampleRates) * (gArgs.GetResult N_Seconds))
         |> Seq.toArray
     writeWavFile (wavForSamples (Array.head wavs) gSamples) (gArgs.GetResult Out_WavFile)
