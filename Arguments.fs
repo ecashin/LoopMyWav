@@ -23,14 +23,22 @@ and WalkerDemoArgs =
         member this.Usage =
             match this with
             | N_Steps _ -> "Number of walker steps"
+and JsonWavDisplayArgs =
+    | [<MainCommand>] WavFile of WAVFILE:string
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | WavFile _ -> "WAV file for JSON display"
 and LoopMyWavArgs =
     | [<CliPrefix(CliPrefix.None)>] Granular of ParseResults<GranularArgs>
     | [<CliPrefix(CliPrefix.None)>] Walker_Demo of ParseResults<WalkerDemoArgs>
+    | [<CliPrefix(CliPrefix.None)>] JsonWav of ParseResults<JsonWavDisplayArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Granular _ -> "Play grains from input files"
             | Walker_Demo _ -> "Show values from random walkers"
+            | JsonWav _ -> "Show JSON for WAV file internals"
 
 let parse argv =
     let errorHandler = ProcessExiter(colorizer = function ErrorCode.HelpText -> None | _ -> Some ConsoleColor.Red)

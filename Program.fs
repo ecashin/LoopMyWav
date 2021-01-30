@@ -723,12 +723,12 @@ let main argv =
         writeWavFile (wavForSamples (Array.head wavs) gSamples) (gArgs.GetResult Out_WavFile)
     | Walker_Demo(wArgs) ->
         Walkers.demo (wArgs.GetResult N_Steps)
+    | JsonWav(jArgs) ->
+        parseWavFile (jArgs.GetResult WavFile)
+        |> JsonConvert.SerializeObject
+        |> printf "%s"
     0
     (*
-    | [|wavFileName; "-j"|] ->
-        let wav = parseWavFile wavFileName
-        wav |> JsonConvert.SerializeObject |> printf "%s"
-        0
     | [|wavFileName; "-s"|] ->
         let wav = parseWavFile wavFileName
         wav
