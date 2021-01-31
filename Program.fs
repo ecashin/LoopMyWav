@@ -724,17 +724,15 @@ let main argv =
     | Walker_Demo(wArgs) ->
         Walkers.demo (wArgs.GetResult N_Steps)
     | JsonWav(jArgs) ->
-        parseWavFile (jArgs.GetResult WavFile)
+        parseWavFile (jArgs.GetResult JsonWavFile)
         |> JsonConvert.SerializeObject
         |> printf "%s"
-    0
-    (*
-    | [|wavFileName; "-s"|] ->
-        let wav = parseWavFile wavFileName
-        wav
+    | DecWav(decArgs) ->
+        parseWavFile (decArgs.GetResult DecWavFile)
         |> extractWavSamples
         |> decDisplayShorts
-        0
+    0
+    (*
     | [|wavFileName|] ->
         let wav = parseWavFile wavFileName
         let (start, stop) = findStartStop wav

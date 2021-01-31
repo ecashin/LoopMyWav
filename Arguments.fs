@@ -24,25 +24,33 @@ and WalkerDemoArgs =
             match this with
             | N_Steps _ -> "Number of walker steps"
 and JsonWavDisplayArgs =
-    | [<MainCommand>] WavFile of WAVFILE:string
+    | [<MainCommand>] JsonWavFile of WAVFILE:string
     interface IArgParserTemplate with
         member this.Usage =
             match this with
-            | WavFile _ -> "WAV file for JSON display"
+            | JsonWavFile _ -> "WAV file for JSON display"
+and DecWavDisplayArgs =
+    | [<MainCommand>] DecWavFile of WAVFILE:string
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | DecWavFile _ -> "WAV file for CSV decimal sample display"
 and LoopMyWavArgs =
     | [<CliPrefix(CliPrefix.None)>] Granular of ParseResults<GranularArgs>
     | [<CliPrefix(CliPrefix.None)>] Walker_Demo of ParseResults<WalkerDemoArgs>
     | [<CliPrefix(CliPrefix.None)>] JsonWav of ParseResults<JsonWavDisplayArgs>
+    | [<CliPrefix(CliPrefix.None)>] DecWav of ParseResults<DecWavDisplayArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Granular _ -> "Play grains from input files"
             | Walker_Demo _ -> "Show values from random walkers"
             | JsonWav _ -> "Show JSON for WAV file internals"
+            | DecWav _ -> "Show decimal in CSV for WAV samples"
 
 let parse argv =
     let errorHandler = ProcessExiter(colorizer = function ErrorCode.HelpText -> None | _ -> Some ConsoleColor.Red)
     let parser = ArgumentParser.Create<LoopMyWavArgs>(programName = "LoopMyWav", errorHandler = errorHandler)
     let results = parser.ParseCommandLine argv
-    printfn "Got parse results %A" <| results.GetAllResults()
+    eprintfn "Got parse results %A" <| results.GetAllResults()
     results
