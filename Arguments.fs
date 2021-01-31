@@ -41,12 +41,21 @@ and LoopWavsFromFileArgs =
         member this.Usage =
             match this with
             | LoopWavsFile _ -> "Text file with input WAV file name per line"
+and NoiseWavArgs =
+    | NoiseInputWav of WAVFILE:string
+    | JsonConfigFile of JSONFILE:string
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | NoiseInputWav _ -> "Input WAV file to be noisified"
+            | JsonConfigFile _ -> "Configuration JSON file"
 and LoopMyWavArgs =
     | [<CliPrefix(CliPrefix.None)>] Granular of ParseResults<GranularArgs>
     | [<CliPrefix(CliPrefix.None)>] Walker_Demo of ParseResults<WalkerDemoArgs>
     | [<CliPrefix(CliPrefix.None)>] JsonWav of ParseResults<JsonWavDisplayArgs>
     | [<CliPrefix(CliPrefix.None)>] DecWav of ParseResults<DecWavDisplayArgs>
     | [<CliPrefix(CliPrefix.None)>] LoopsWav of ParseResults<LoopWavsFromFileArgs>
+    | [<CliPrefix(CliPrefix.None)>] Noise of ParseResults<NoiseWavArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -55,6 +64,7 @@ and LoopMyWavArgs =
             | JsonWav _ -> "Show JSON for WAV file internals"
             | DecWav _ -> "Show decimal in CSV for WAV samples"
             | LoopsWav _ -> "Read input WAV file names to be looped from lines in file"
+            | Noise _ -> "Add noise to WAV file according to JSON configuration"
 let parse argv =
     let errorHandler = ProcessExiter(colorizer = function ErrorCode.HelpText -> None | _ -> Some ConsoleColor.Red)
     let parser = ArgumentParser.Create<LoopMyWavArgs>(programName = "LoopMyWav", errorHandler = errorHandler)

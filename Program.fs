@@ -662,7 +662,7 @@ type JudgeForm(cfg, inWav) as this =
         printfn "result: %A" result
     do
         player.StartInfo.FileName <- "mpv"
-        player.StartInfo.Arguments <- sprintf "--ao=jack %s" cfg.OutFileName
+        player.StartInfo.Arguments <- sprintf "%s" cfg.OutFileName
         player.StartInfo.RedirectStandardOutput <- false
         player.StartInfo.UseShellExecute <- false
 
@@ -753,15 +753,13 @@ let main argv =
         let linesRead = makeLineReader (loopsArgs.GetResult LoopWavsFile)
         linesRead ()
             |> Seq.iter createLoopedWavFile
-    0
-    (*
-    | [|inWavFileName; "-N"; jsonConfigFileName|] ->
+    | Noise(noiseArgs) ->
+        let inWavFileName = noiseArgs.GetResult NoiseInputWav
+        let jsonConfigFileName = noiseArgs.GetResult JsonConfigFile
         let cfg = configFromJsonFile jsonConfigFileName
         let inWav = parseWavFile inWavFileName
         Eto.Platform.Initialize(Eto.Platforms.WinForms)
         let app = new Application()
         let form = new JudgeForm(cfg, inWav)
         app.Run(form)
-        0
-    | _ -> 1
-    *)
+    0
