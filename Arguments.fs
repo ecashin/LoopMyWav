@@ -42,8 +42,8 @@ and LoopWavsFromFileArgs =
             match this with
             | LoopWavsFile _ -> "Text file with input WAV file name per line"
 and NoiseWavArgs =
-    | NoiseInputWav of WAVFILE:string
-    | JsonConfigFile of JSONFILE:string
+    | [<Mandatory>] NoiseInputWav of WAVFILE:string
+    | [<Mandatory>] JsonConfigFile of JSONFILE:string
     | Optimize
     interface IArgParserTemplate with
         member this.Usage =

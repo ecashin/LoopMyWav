@@ -727,7 +727,7 @@ let main argv =
             |> Seq.toArray
         writeWavFile (wavForSamples (Array.head wavs) gSamples) (gArgs.GetResult Out_WavFile)
     | Walker_Demo(wArgs) ->
-        Walkers.demo (wArgs.GetResult N_Steps)
+        Walkers.demo (wArgs.GetResult (N_Steps, 1000))
     | JsonWav(jArgs) ->
         parseWavFile (jArgs.GetResult JsonWavFile)
         |> JsonConvert.SerializeObject
