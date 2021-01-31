@@ -8,8 +8,8 @@ open Argu
 type GranularArgs =
     | N_Grains of nGrains:int
     | N_Seconds of nSeconds:int
-    | Out_WavFile of outWavFileName:string
-    | In_WavFiles of inWavFileName:string list
+    | [<Mandatory>] Out_WavFile of outWavFileName:string
+    | [<Mandatory>] In_WavFiles of inWavFileName:string list
     interface IArgParserTemplate with
         member this.Usage =
             match this with

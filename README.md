@@ -92,8 +92,8 @@ to mix the granulated tracks.
 
     USAGE: LoopMyWav granular [--help] [--n-grains <nGrains>]
                             [--n-seconds <nSeconds>]
-                            [--out-wavfile <outWavFileName>]
-                            [--in-wavfiles [<inWavFileName>...]]
+                            --out-wavfile <outWavFileName>
+                            --in-wavfiles [<inWavFileName>...]
 
     OPTIONS:
 
