@@ -36,7 +36,7 @@ and DecWavDisplayArgs =
             match this with
             | DecWavFile _ -> "WAV file for CSV decimal sample display"
 and LoopWavsFromFileArgs =
-    | [<MainCommand>] LoopWavsFile of INOUT_PAIRS_FILE:string
+    | [<MainCommand>] LoopWavsFile of WAVSFILE:string
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -65,9 +65,9 @@ and LoopMyWavArgs =
             | DecWav _ -> "Show decimal in CSV for WAV samples"
             | LoopsWav _ -> "Read input WAV file names to be looped from lines in file"
             | Noise _ -> "Add noise to WAV file according to JSON configuration"
+
 let parse argv =
     let errorHandler = ProcessExiter(colorizer = function ErrorCode.HelpText -> None | _ -> Some ConsoleColor.Red)
     let parser = ArgumentParser.Create<LoopMyWavArgs>(programName = "LoopMyWav", errorHandler = errorHandler)
     let results = parser.ParseCommandLine argv
-    eprintfn "Got parse results %A" <| results.GetAllResults()
     results
