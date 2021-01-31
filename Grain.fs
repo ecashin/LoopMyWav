@@ -57,8 +57,14 @@ let advanceGrain env makeGrain (g: Grain) (source: int [] []): (int [] * Grain) 
 let Int16Scale = (int Int16.MaxValue) - (int Int16.MinValue) |> float
 
 // https://ccrma.stanford.edu/~jos/pasp/Soft_Clipping.html
-let softClip smpl =
+let softClip nTracks smpl =
     let s = (float smpl) / Int16Scale
+    let softScale =
+        0.8 *
+        if nTracks > 2 then
+            3.0 / (float nTracks)
+        else
+            1.0
     let clipped =
         if s < -1.0 then
             -(2.0 / 3.0)
@@ -66,9 +72,10 @@ let softClip smpl =
             2.0 / 3.0
         else
             s - (s * s * s) / 3.0
-    clipped * Int16Scale * 0.8
+    clipped * softScale * Int16Scale
 
 let mix (samples: int [] []) (weights: option<float []>) =
+    let nTracks = samples.Length
     samples.[1..]
     |> Array.fold (fun (acc: int []) (next: int []) ->
         let safeNext =
@@ -81,7 +88,7 @@ let mix (samples: int [] []) (weights: option<float []>) =
         acc
         |> Array.mapi (fun i s -> s + safeNext.[i])
     ) samples.[0]
-    |> Array.map (softClip >> Math.Round >> int)
+    |> Array.map ((softClip nTracks) >> Math.Round >> int)
 
 let advanceGrains env makeGrain (grains: Grain []) (source: int [] []): (int [] * Grain []) =
     let samples, nextGrains =

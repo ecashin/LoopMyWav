@@ -725,7 +725,17 @@ let main argv =
             Grain.granulate sampleRates.[0] envs grainMakers nGrains wavSamples
             |> Seq.take ((Array.head sampleRates) * nSeconds)
             |> Seq.toArray
-        writeWavFile (wavForSamples (Array.head wavs) gSamples) (gArgs.GetResult Out_WavFile)
+        let grainWav = wavForSamples (Array.head wavs) gSamples
+        let outWav =
+            if (gArgs.Contains Noise_Config) then
+                let cfg = configFromJsonFile (gArgs.GetResult Noise_Config)
+                let walkers =
+                    cfg.WalkerDefs
+                    |> Array. map Walkers.makeWalker
+                addNoise cfg.WetToDry walkers grainWav
+            else
+                grainWav
+        writeWavFile outWav (gArgs.GetResult Out_WavFile)
     | Walker_Demo(wArgs) ->
         Walkers.demo (wArgs.GetResult (N_Steps, 1000))
     | JsonWav(jArgs) ->

@@ -90,8 +90,13 @@ If you supply more than one audio file,
 LoopMyWav will use a slewed Dirichlet process
 to mix the granulated tracks.
 
+The noise function from the subcommand described below
+can be used on the granulated audio
+by specifying a JSON config file.
+
     USAGE: LoopMyWav granular [--help] [--n-grains <nGrains>]
                             [--n-seconds <nSeconds>]
+                            [--noise-config <noiseConfig>]
                             --out-wavfile <outWavFileName>
                             --in-wavfiles [<inWavFileName>...]
 
@@ -100,6 +105,8 @@ to mix the granulated tracks.
         --n-grains <nGrains>  Number of grains to use
         --n-seconds <nSeconds>
                             Number of seconds for output WAV
+        --noise-config <noiseConfig>
+                            JSON configuring noise to be added
         --out-wavfile <outWavFileName>
                             The name of the WAV file to create for output
         --in-wavfiles [<inWavFileName>...]
@@ -158,13 +165,13 @@ as configured by a JSON file.
 A random walker modulates delay lines that are mixed
 with the original audio.
 
-A GUI allows you to act as the objective function
+An optional GUI allows you to act as the objective function
 for Bayesian optimization over the
 random walker's parameters.
+Use the `--optimize` option to find walker parameters you like
+for your JSON config file.
 
-Currently this mode *only* supports searching,
-but the last one played remains in the output file
-when you quit by clicking the GUI's close-window icon.
+An example config file appears here as `config.json`.
 
 TODO:
 * Add logging of parameters and associated losses
