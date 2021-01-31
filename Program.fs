@@ -483,13 +483,16 @@ let addLoop (wav: Wav) start stop =
         wav with Chunks = newChunks; Header = newWavHeader
     }
 
-let rec stdInLines () =
-    seq {
-        let line = Console.ReadLine()
-        if not (isNull line) then
-            yield line
-            yield! stdInLines ()
-    }
+let makeLineReader (textFile: string) =
+    let rd = System.IO.File.OpenText(textFile)
+    let rec lines () =
+        seq {
+            let line = rd.ReadLine()
+            if not (isNull line) then
+                yield line
+                yield! lines ()
+        }
+    lines
 
 let splitSample (s: int) =
     let short = s |> uint16
@@ -731,15 +734,7 @@ let main argv =
         parseWavFile (decArgs.GetResult DecWavFile)
         |> extractWavSamples
         |> decDisplayShorts
-    0
-    (*
-    | [|wavFileName|] ->
-        let wav = parseWavFile wavFileName
-        let (start, stop) = findStartStop wav
-        printfn "start: %d" start
-        printfn "stop: %d" stop
-        0
-    | [| |] ->
+    | LoopsWav(loopsArgs) ->
         let splitInOut (path: string) =
             let dirName = Path.GetDirectoryName(path)
             let baseName = Path.GetFileNameWithoutExtension(path)
@@ -755,15 +750,11 @@ let main argv =
             printfn "    loop from %d to %d" start stop
             let outWav = addLoop inWav start stop
             writeWavFile outWav outFile
-        stdInLines ()
+        let linesRead = makeLineReader (loopsArgs.GetResult LoopWavsFile)
+        linesRead ()
             |> Seq.iter createLoopedWavFile
-        0
-    | [|inWavFileName; outWavFileName|] ->
-        let inWav = parseWavFile inWavFileName
-        let (start, stop) = findStartStop inWav
-        let outWav = addLoop inWav start stop
-        writeWavFile outWav outWavFileName
-        0
+    0
+    (*
     | [|inWavFileName; "-N"; jsonConfigFileName|] ->
         let cfg = configFromJsonFile jsonConfigFileName
         let inWav = parseWavFile inWavFileName
