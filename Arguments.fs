@@ -44,11 +44,13 @@ and LoopWavsFromFileArgs =
 and NoiseWavArgs =
     | NoiseInputWav of WAVFILE:string
     | JsonConfigFile of JSONFILE:string
+    | Optimize
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | NoiseInputWav _ -> "Input WAV file to be noisified"
             | JsonConfigFile _ -> "Configuration JSON file"
+            | Optimize _ -> "Use a GUI to participate in Bayesian optimization"
 and LoopMyWavArgs =
     | [<CliPrefix(CliPrefix.None)>] Granular of ParseResults<GranularArgs>
     | [<CliPrefix(CliPrefix.None)>] Walker_Demo of ParseResults<WalkerDemoArgs>

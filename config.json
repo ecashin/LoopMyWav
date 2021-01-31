@@ -3,15 +3,6 @@
     "OutFileName": "out.wav",
     "WalkerDefs": [
 	{
-	    "MostDelay": 11,
-	    "LeastDelay": 1,
-	    "AccA": -0.4,
-	    "AccB": 0.4,
-	    "SpeedA": -2.0,
-	    "SpeedB": 2.0,
-	    "UpdateDelay": 5
-	},
-	{
 	    "MostDelay": 160,
 	    "LeastDelay": 1,
 	    "AccA": -0.1,
@@ -23,8 +14,8 @@
 	{
 	    "MostDelay": 360,
 	    "LeastDelay": 100,
-	    "AccA": -0.1,
-	    "AccB": 0.1,
+	    "AccA": -10.0,
+	    "AccB": 10.0,
 	    "SpeedA": -0.1,
 	    "SpeedB": 0.1,
 	    "UpdateDelay": 1000

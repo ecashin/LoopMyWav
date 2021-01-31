@@ -169,10 +169,9 @@ when you quit by clicking the GUI's close-window icon.
 TODO:
 * Add logging of parameters and associated losses
 * Support loading of pre-recorded parameters and losses
-* Re-introduce multiple walkers with static parameters
 
     USAGE: LoopMyWav noise [--help] [--noiseinputwav <WAVFILE>]
-                        [--jsonconfigfile <JSONFILE>]
+                        [--jsonconfigfile <JSONFILE>] [--optimize]
 
     OPTIONS:
 
@@ -180,6 +179,7 @@ TODO:
                             Input WAV file to be noisified
         --jsonconfigfile <JSONFILE>
                             Configuration JSON file
+        --optimize            Use a GUI to participate in Bayesian optimization
         --help                display this list of options.
 
 ## Dependencies

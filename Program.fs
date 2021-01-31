@@ -758,8 +758,15 @@ let main argv =
         let jsonConfigFileName = noiseArgs.GetResult JsonConfigFile
         let cfg = configFromJsonFile jsonConfigFileName
         let inWav = parseWavFile inWavFileName
-        Eto.Platform.Initialize(Eto.Platforms.WinForms)
-        let app = new Application()
-        let form = new JudgeForm(cfg, inWav)
-        app.Run(form)
+        if noiseArgs.Contains Optimize then
+            Eto.Platform.Initialize(Eto.Platforms.WinForms)
+            let app = new Application()
+            let form = new JudgeForm(cfg, inWav)
+            app.Run(form)
+        else
+            let walkers =
+                cfg.WalkerDefs
+                |> Array. map Walkers.makeWalker
+            let outWav = addNoise cfg.WetToDry walkers inWav
+            writeWavFile outWav cfg.OutFileName
     0
