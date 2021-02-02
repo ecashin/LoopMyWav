@@ -781,4 +781,7 @@ let main argv =
                 |> Array. map Walkers.makeWalker
             let outWav = addNoise cfg.WetToDry walkers inWav
             writeWavFile outWav cfg.OutFileName
+    | Transients(tArgs) ->
+        if tArgs.Contains Demo then
+            Transient.demo 44100 1000 2
     0

@@ -53,6 +53,12 @@ and NoiseWavArgs =
             | NoiseInputWav _ -> "Input WAV file to be noisified"
             | JsonConfigFile _ -> "Configuration JSON file"
             | Optimize _ -> "Use a GUI to participate in Bayesian optimization"
+and TransientsArgs =
+    | Demo
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Demo _ -> "Demonstrate transient detection"
 and LoopMyWavArgs =
     | [<CliPrefix(CliPrefix.None)>] Granular of ParseResults<GranularArgs>
     | [<CliPrefix(CliPrefix.None)>] Walker_Demo of ParseResults<WalkerDemoArgs>
@@ -60,6 +66,7 @@ and LoopMyWavArgs =
     | [<CliPrefix(CliPrefix.None)>] DecWav of ParseResults<DecWavDisplayArgs>
     | [<CliPrefix(CliPrefix.None)>] LoopsWav of ParseResults<LoopWavsFromFileArgs>
     | [<CliPrefix(CliPrefix.None)>] Noise of ParseResults<NoiseWavArgs>
+    | [<CliPrefix(CliPrefix.None)>] Transients of ParseResults<TransientsArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -69,6 +76,7 @@ and LoopMyWavArgs =
             | DecWav _ -> "Show decimal in CSV for WAV samples"
             | LoopsWav _ -> "Read input WAV file names to be looped from lines in file"
             | Noise _ -> "Add noise to WAV file according to JSON configuration"
+            | Transients _ -> "Find transients"
 
 let parse argv =
     let errorHandler = ProcessExiter(colorizer = function ErrorCode.HelpText -> None | _ -> Some ConsoleColor.Red)
