@@ -1,0 +1,24 @@
+{
+    "WetToDry": 0.5,
+    "OutFileName": "out.wav",
+    "WalkerDefs": [
+	{
+	    "MostDelay": 160,
+	    "LeastDelay": 1,
+	    "AccA": -0.1,
+	    "AccB": 0.1,
+	    "SpeedA": -1.1,
+	    "SpeedB": 1.1,
+	    "UpdateDelay": 100
+	},
+	{
+	    "MostDelay": 360,
+	    "LeastDelay": 100,
+	    "AccA": -10.0,
+	    "AccB": 10.0,
+	    "SpeedA": -0.1,
+	    "SpeedB": 0.1,
+	    "UpdateDelay": 1000
+	}
+    ]
+}

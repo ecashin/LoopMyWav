@@ -1,0 +1,13 @@
+*.wav
+*.WAV
+*.csv
+*.aiff
+*.png
+*~
+*.patch
+
+.fake
+.ionide
+bin/
+.vscode/
+obj/
