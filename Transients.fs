@@ -16,6 +16,20 @@ let smoothedAmplitudeChannels (sr:int) (channels: Series<int,float> []) =
     channels
     |> Array.map (fun x -> Deedle.Math.Stats.ewmMean (x=x, alpha=0.1))
 
+let channelAttacks smoothedChannel =
+    let forward = Deedle.Math.Stats.ewmMean (x=smoothedChannel, alpha=0.1)
+    let backward = (Deedle.Math.Stats.ewmMean (x=smoothedChannel.Reversed, alpha=0.1)).Reversed
+    let n = Series.countKeys smoothedChannel
+    let attacks = Array.init n (fun i ->
+        if i = 0 || i + 1 = n then
+            0.0
+        else if forward.[i] < smoothedChannel.[i] && smoothedChannel.[i] > backward.[i + 1] then
+            220.0
+        else
+            0.0
+    )
+    Series.ofValues attacks
+
 let demo (sr:int) (nSamples:int) (nChans:int) =
     let theta = Series.ofValues (Generate.LinearSpaced(nSamples, 0.0, 20.0 * Math.PI))
     let sinTheta = (Series.Sin(theta)) * 200.0
@@ -35,14 +49,19 @@ let demo (sr:int) (nSamples:int) (nChans:int) =
     let channelNames prefix =
         Array.init noiseSamples.[0].Length (fun i -> sprintf "%s%d" prefix (i + 1))
     let smoothed = smoothedAmplitudeChannels sr channels
+    let attacks =
+        smoothed
+        |> Array.map channelAttacks
     let columns = Array.concat [|
         samplesToChannels noiseSamples |> Array.map Series.ofValues
         smoothed
+        attacks
         [|sinTheta|]
     |]
     let colNames = Array.concat [|
         channelNames "raw"
         channelNames "smoothed"
+        channelNames "attacks"
         [|"sin"|]
     |]
     let df =
