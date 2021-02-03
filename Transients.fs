@@ -26,7 +26,7 @@ let advanceEnvelope reTrigger env trigger =
     | None, _, true ->
         let newEnv = {
             Pos = 0
-            Env = Window.Tukey(40, 0.3)  // XXXtodo: parameterize
+            Env = Window.Tukey(10, 0.3)  // XXXtodo: parameterize
         }
         newEnv.Env.[newEnv.Pos], Some(newEnv)
     | _, _, _ -> 0.0, None
@@ -107,4 +107,20 @@ let demo (sr:int) (nSamples:int) (nChans:int) =
             for i in 0..(columns.Length - 1) do
                 colNames.[i] => columns.[i]
         ]
-    df.SaveCsv("/dev/stdout")
+    // df.SaveCsv("/dev/stdout")
+    let traces =
+        colNames
+        |> Array.map (fun c ->
+            let y = df |> Frame.getCol c |> Series.values
+            let x = seq { 0..(df.RowCount - 1)}
+            Scatter(
+                x = x,
+                y = y,
+                mode = "markers",
+                name = c
+            )
+        )
+        |> Array.toSeq
+    traces
+    |> Chart.Plot
+    |> Chart.Show

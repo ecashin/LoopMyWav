@@ -783,5 +783,5 @@ let main argv =
             writeWavFile outWav cfg.OutFileName
     | Transients(tArgs) ->
         if tArgs.Contains Demo then
-            Transient.demo 44100 1000 2
+            Transient.demo 44100 200 2 |> ignore
     0
