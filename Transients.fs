@@ -6,6 +6,31 @@ open Deedle
 open MathNet.Numerics
 open XPlot.Plotly
 
+type Envelope = {
+    Pos: int
+    Env: float []
+}
+
+let advanceEnvelope reTrigger env trigger =
+    let nextEnv e =
+        let nextPos = e.Pos + 1
+        if nextPos >= e.Env.Length then
+            None
+        else
+            Some({e with Pos = nextPos})
+    match env, reTrigger, trigger with
+    | Some(e), false, _
+    | Some(e), true, false ->
+        e.Env.[e.Pos], nextEnv e
+    | Some(_), true, true
+    | None, _, true ->
+        let newEnv = {
+            Pos = 0
+            Env = Window.Tukey(40, 0.3)  // XXXtodo: parameterize
+        }
+        newEnv.Env.[newEnv.Pos], Some(newEnv)
+    | _, _, _ -> 0.0, None
+
 let samplesToChannels (samples: int [] []) =
     let nChans = samples.[0].Length
     Array.init nChans (fun i ->
@@ -52,16 +77,29 @@ let demo (sr:int) (nSamples:int) (nChans:int) =
     let attacks =
         smoothed
         |> Array.map channelAttacks
+    let enveloped =
+        let rec getEnvs (i:int) currEnv =
+            if i >= nSamples then
+                []
+            else
+                let attackSumAtI =
+                    attacks
+                    |> Array.sumBy (fun s -> s |> Series.get i)
+                let amp, nextEnv = advanceEnvelope false currEnv (attackSumAtI > 0.0)
+                amp :: (getEnvs (i + 1) nextEnv)
+        (Series.ofValues (getEnvs 0 None)) * 200.0 // XXXdebug: 200
     let columns = Array.concat [|
         samplesToChannels noiseSamples |> Array.map Series.ofValues
         smoothed
         attacks
+        [|enveloped|]
         [|sinTheta|]
     |]
     let colNames = Array.concat [|
         channelNames "raw"
         channelNames "smoothed"
         channelNames "attacks"
+        [|"enveloped"|]
         [|"sin"|]
     |]
     let df =
