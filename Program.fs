@@ -621,7 +621,15 @@ type Config = {
     OutFileName: string
     WetToDry: float
     WalkerDefs: Walkers.WalkerDef []
+    AudioPlayer: option<string>
 }
+
+let DefaultAudioPlayer = "mpv"
+
+let cfgAudioPlayer cfg =
+    match cfg.AudioPlayer with
+    | Some(p) -> p
+    | None -> DefaultAudioPlayer
 
 let configFromJsonFile fName =
     use f = File.OpenText(fName)
@@ -632,7 +640,7 @@ type JudgeForm(cfg, inWav) as this =
     inherit Form()
     let mutable loss: float = 1.0
     let mutable parms: float [] = Array.zeroCreate 0
-    let player = new System.Diagnostics.Process()
+    let player = new Diagnostics.Process()
     let mutable waitingForHuman = false
     let iters = 100
     let opt = Hyper.makeOpt (Hyper.parameters (sampleRate inWav)) iters
@@ -661,7 +669,7 @@ type JudgeForm(cfg, inWav) as this =
         let result = opt.OptimizeBest(Func<float [],OptimizerResult>(doOneExperiment))
         printfn "result: %A" result
     do
-        player.StartInfo.FileName <- "mpv"
+        player.StartInfo.FileName <- cfgAudioPlayer cfg
         player.StartInfo.Arguments <- sprintf "%s" cfg.OutFileName
         player.StartInfo.RedirectStandardOutput <- false
         player.StartInfo.UseShellExecute <- false
