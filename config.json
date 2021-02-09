@@ -1,24 +1,24 @@
 {
-    "WetToDry": 0.5,
+    "WetToDry": 0.8,
     "OutFileName": "out.wav",
     "WalkerDefs": [
 	{
-	    "MostDelay": 160,
-	    "LeastDelay": 1,
-	    "AccA": -0.1,
-	    "AccB": 0.1,
-	    "SpeedA": -1.1,
-	    "SpeedB": 1.1,
-	    "UpdateDelay": 100
+		"MostDelay": 125,
+		"LeastDelay": 1,
+		"AccA": -1.000932114,
+		"AccB": 1.000932114,
+		"SpeedA": -0.9831751854,
+		"SpeedB": 0.9831751854,
+		"UpdateDelay": 10837
 	},
 	{
-	    "MostDelay": 360,
-	    "LeastDelay": 100,
-	    "AccA": -10.0,
-	    "AccB": 10.0,
-	    "SpeedA": -0.1,
-	    "SpeedB": 0.1,
-	    "UpdateDelay": 1000
+		"MostDelay": 48,
+		"LeastDelay": 1,
+		"AccA": -0.1607397277,
+		"AccB": 0.1607397277,
+		"SpeedA": -0.8210424408,
+		"SpeedB": 0.8210424408,
+		"UpdateDelay": 1453
 	}
     ]
 }
