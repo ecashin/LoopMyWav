@@ -46,13 +46,13 @@ and LoopWavsFromFileArgs =
 and NoiseWavArgs =
     | [<Mandatory>] NoiseInputWav of WAVFILE:string
     | [<Mandatory>] JsonConfigFile of JSONFILE:string
-    | Optimize
+    | Optimize of SEARCHLOG:string
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | NoiseInputWav _ -> "Input WAV file to be noisified"
             | JsonConfigFile _ -> "Configuration JSON file"
-            | Optimize _ -> "Use a GUI to participate in Bayesian optimization"
+            | Optimize _ -> "Log Bayesian optimization search to named file"
 and TransientsArgs =
     | Demo
     interface IArgParserTemplate with

@@ -621,18 +621,27 @@ type Config = {
     OutFileName: string
     WetToDry: float
     WalkerDefs: Walkers.WalkerDef []
+    AudioPlayer: option<string>
 }
+
+let DefaultAudioPlayer = "mpv"
+
+let cfgAudioPlayer cfg =
+    match cfg.AudioPlayer with
+    | Some(p) -> p
+    | None -> DefaultAudioPlayer
 
 let configFromJsonFile fName =
     use f = File.OpenText(fName)
     JsonConvert.DeserializeObject<Config>(f.ReadToEnd())
 
 // These were very nice: parms:[|891.0; 1.140829218; 0.02645302773; 14741.0|]
-type JudgeForm(cfg, inWav) as this =
+type JudgeForm(cfg, inWav, searchLogFileName: string) as this =
     inherit Form()
+    let log = new StreamWriter(searchLogFileName)
     let mutable loss: float = 1.0
     let mutable parms: float [] = Array.zeroCreate 0
-    let player = new System.Diagnostics.Process()
+    let player = new Diagnostics.Process()
     let mutable waitingForHuman = false
     let iters = 100
     let opt = Hyper.makeOpt (Hyper.parameters (sampleRate inWav)) iters
@@ -661,7 +670,7 @@ type JudgeForm(cfg, inWav) as this =
         let result = opt.OptimizeBest(Func<float [],OptimizerResult>(doOneExperiment))
         printfn "result: %A" result
     do
-        player.StartInfo.FileName <- "mpv"
+        player.StartInfo.FileName <- cfgAudioPlayer cfg
         player.StartInfo.Arguments <- sprintf "%s" cfg.OutFileName
         player.StartInfo.RedirectStandardOutput <- false
         player.StartInfo.UseShellExecute <- false
@@ -685,6 +694,8 @@ type JudgeForm(cfg, inWav) as this =
                 printfn "sender:%A y:%f height:%f newLoss:%f" label y height newLoss
                 loss <- newLoss
                 printfn "parms:%A" parms
+                log.WriteLine(sprintf "%f,%A" loss parms)
+                log.Flush()
                 waitingForHuman <- false
             )
         )
@@ -771,9 +782,10 @@ let main argv =
         let cfg = configFromJsonFile jsonConfigFileName
         let inWav = parseWavFile inWavFileName
         if noiseArgs.Contains Optimize then
+            let searchLog = noiseArgs.GetResult Optimize
             Eto.Platform.Initialize(Eto.Platforms.WinForms)
             let app = new Application()
-            let form = new JudgeForm(cfg, inWav)
+            let form = new JudgeForm(cfg, inWav, searchLog)
             app.Run(form)
         else
             let walkers =
