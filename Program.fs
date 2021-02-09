@@ -694,8 +694,16 @@ type JudgeForm(cfg, inWav) as this =
             optimize ()
         } |> Async.StartAsTask |> ignore
 
+open System.Runtime.InteropServices
+
+module InteropWithNative =
+    [<DllImport(@"libmpv.so.1", CallingConvention = CallingConvention.Cdecl)>]
+    extern System.UIntPtr mpv_create()
+
 [<EntryPoint>]
 let main argv =
+    printfn "%A" (InteropWithNative.mpv_create ())
+    exit 0
     let args = (parse argv).GetAllResults()
     match args.[0] with
     | Granular(gArgs) ->
