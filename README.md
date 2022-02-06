@@ -162,6 +162,7 @@ This subcommand prints the WAV files samples as CSV.
 
 This subcommand causes LoopMyWav to add noise to the input WAV audio
 as configured by a JSON file.
+Only mono audio sources are supported.
 A random walker modulates delay lines that are mixed
 with the original audio.
 
